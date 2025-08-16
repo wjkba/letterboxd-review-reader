@@ -15,8 +15,16 @@ async function main() {
   const html = await getHTML();
   const $ = cheerio.load(html);
   $(".production-viewing").each((i, review) => {
-    const reviewCollapsedText = $(review).find(".collapsed-text p").text();
-    console.log(reviewCollapsedText);
+    const reviewAuthorHref = $(review).find(".avatar").attr("href");
+    const reviewAuthor = reviewAuthorHref.replace(/\//g, "");
+    console.log("Author " + reviewAuthor);
+
+    const fullTextUrl = $(review)
+      .find(".body-text:has(div.collapsed-text)")
+      .attr("data-full-text-url");
+    console.log(fullTextUrl);
+
+    console.log("====================");
   });
 }
 
