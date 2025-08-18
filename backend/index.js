@@ -59,9 +59,22 @@ async function extractReviews(reviewLinks) {
 }
 
 async function main() {
-  const html = await getHTML(url);
-  const reviewLinks = extractReviewLinks(html);
-  const reviews = await extractReviews(reviewLinks);
+  let allReviewLinks = [];
+
+  for (let page = 1; page <= 5; page++) {
+    let pageUrl = url;
+    if (page > 1) {
+      pageUrl = url.replace(/\/$/, `/page/${page}/`);
+    }
+
+    const html = await getHTML(pageUrl);
+    const reviewLinks = extractReviewLinks(html);
+    allReviewLinks = allReviewLinks.concat(reviewLinks);
+
+    await delay(1000);
+  }
+
+  const reviews = await extractReviews(allReviewLinks);
   console.log(reviews);
 }
 
