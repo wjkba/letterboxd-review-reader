@@ -1,4 +1,3 @@
-import { getReviews } from "@/utils/reviews";
 import { useState } from "react";
 import {
   ActivityIndicator,
@@ -8,6 +7,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { api } from "../utils/api";
 
 export default function Index() {
   const [isLoading, setIsLoading] = useState(false);
@@ -21,9 +21,11 @@ export default function Index() {
 
   async function handleLoadReviews() {
     setIsLoading(true);
+    setErrorMessage(null);
+
     try {
-      const reviews = getReviews(slug);
-      console.log(reviews);
+      const data = await api.getReviews(slug);
+      console.log("🚀 ~ handleLoadReviews ~ data:", data);
     } catch (error) {
       setErrorMessage("Something went wrong while loading reviews");
       console.log(error);
@@ -35,7 +37,7 @@ export default function Index() {
   if (isLoading) {
     return (
       <View style={styles.centeredContainer}>
-        <ActivityIndicator size="large" color="#0000ff" />
+        <ActivityIndicator size="large" color="black" />
         <Text style={{ marginTop: 10 }}>Loading reviews...</Text>
       </View>
     );

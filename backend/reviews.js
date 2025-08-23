@@ -56,7 +56,7 @@ async function extractReviews(reviewLinks) {
   return extractedReviews;
 }
 
-export async function getReviews(filmSlug) {
+async function getReviews(filmSlug) {
   const url = `https://letterboxd.com/film/${filmSlug}/reviews/by/activity/`;
   let allReviewLinks = [];
 
@@ -76,3 +76,5 @@ export async function getReviews(filmSlug) {
   const reviews = await extractReviews(allReviewLinks);
   return reviews;
 }
+
+module.exports = { getReviews };
