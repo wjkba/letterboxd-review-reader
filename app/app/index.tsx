@@ -1,35 +1,75 @@
+import { getReviews } from "@/utils/reviews";
 import { useState } from "react";
-import { Button, StyleSheet, TextInput, View } from "react-native";
+import {
+  ActivityIndicator,
+  Button,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 
 export default function Index() {
+  const [isLoading, setIsLoading] = useState(false);
   const [slug, setSlug] = useState("");
+  const [errorMessage, setErrorMessage] = useState<null | string>(null);
 
-  function handleInputChange(value: string) {
-    setSlug(value);
+  function handleInputChange(userInputSlug: string) {
+    console.log(userInputSlug);
+    setSlug(userInputSlug);
+  }
+
+  async function handleLoadReviews() {
+    setIsLoading(true);
+    try {
+      const reviews = getReviews(slug);
+      console.log(reviews);
+    } catch (error) {
+      setErrorMessage("Something went wrong while loading reviews");
+      console.log(error);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <View style={styles.centeredContainer}>
+        <ActivityIndicator size="large" color="#0000ff" />
+        <Text style={{ marginTop: 10 }}>Loading reviews...</Text>
+      </View>
+    );
   }
 
   return (
-    <View
-      style={{
-        flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-      }}
-    >
-      <View>
+    <View style={styles.centeredContainer}>
+      <View style={styles.inputContainer}>
         <TextInput
+          value={slug}
           onChangeText={handleInputChange}
           placeholder="Letterboxd film slug"
           style={styles.input}
         />
-        <Button title="Load Reviews" />
+        <Button onPress={handleLoadReviews} title="Load Reviews" />
       </View>
+
+      {errorMessage && <Text>{errorMessage}</Text>}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  centeredContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  inputContainer: {
+    // maxWidth: 450,
+  },
   input: {
+    width: 200,
+    textAlign: "center",
     borderWidth: 1,
     marginBottom: 8,
     paddingHorizontal: 8,
