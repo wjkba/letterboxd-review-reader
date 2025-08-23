@@ -1,31 +1,39 @@
-const axios = require("axios");
-const cheerio = require("cheerio");
+import axios from "axios";
+import * as cheerio from "cheerio";
 
-const url = "https://letterboxd.com/film/parasite-2019/reviews/by/activity/";
+export interface ReviewLink {
+  author: string;
+  fullTextUrl: string;
+}
 
-async function getHTML(url) {
+export interface ExtractedReview {
+  author: string;
+  html: string | null;
+}
+
+async function getHTML(url: string): Promise<string> {
   const { data: html } = await axios.get(url);
   return html;
 }
 
-function delay(ms) {
+function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function extractReviewLinks(html) {
-  let reviewLinks = [];
+function extractReviewLinks(html: string): ReviewLink[] {
+  let reviewLinks: ReviewLink[] = [];
 
   const $ = cheerio.load(html);
-  $(".production-viewing").each((i, reviewElement) => {
+  $(".production-viewing").each((i: number, reviewElement: any) => {
     const reviewAuthorHref = $(reviewElement).find(".avatar").attr("href");
-    const reviewAuthor = reviewAuthorHref.replace(/\//g, "");
+    const reviewAuthor = reviewAuthorHref?.replace(/\//g, "") || "";
 
     const fullTextUrl = $(reviewElement)
       .find(".body-text:has(div.collapsed-text)")
       .attr("data-full-text-url");
 
     if (fullTextUrl) {
-      const reviewLink = {
+      const reviewLink: ReviewLink = {
         author: reviewAuthor,
         fullTextUrl,
       };
@@ -35,8 +43,10 @@ function extractReviewLinks(html) {
   return reviewLinks;
 }
 
-async function extractReviews(reviewLinks) {
-  let extractedReviews = [];
+async function extractReviews(
+  reviewLinks: ReviewLink[]
+): Promise<ExtractedReview[]> {
+  let extractedReviews: ExtractedReview[] = [];
 
   for (const review of reviewLinks) {
     const reviewHTML = await getHTML(
@@ -46,7 +56,7 @@ async function extractReviews(reviewLinks) {
     const $ = cheerio.load(reviewHTML);
     const html = $("body").html();
 
-    const extractedReview = {
+    const extractedReview: ExtractedReview = {
       author: review.author,
       html,
     };
@@ -58,8 +68,9 @@ async function extractReviews(reviewLinks) {
   return extractedReviews;
 }
 
-async function main() {
-  let allReviewLinks = [];
+export async function getReviews(filmSlug: string): Promise<ExtractedReview[]> {
+  const url = `https://letterboxd.com/film/${filmSlug}/reviews/by/activity/`;
+  let allReviewLinks: ReviewLink[] = [];
 
   for (let page = 1; page <= 5; page++) {
     let pageUrl = url;
@@ -75,7 +86,5 @@ async function main() {
   }
 
   const reviews = await extractReviews(allReviewLinks);
-  console.log(reviews);
+  return reviews;
 }
-
-main().catch(console.error);
