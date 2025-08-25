@@ -1,13 +1,47 @@
-import { useState } from "react";
-import { Button, StyleSheet, Text, TextInput, View } from "react-native";
+import { useLayoutEffect, useState } from "react";
+import {
+  Button,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { router } from "expo-router";
+import { useNavigation } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 
 export default function Index() {
   const [slug, setSlug] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const navigation = useNavigation();
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <Pressable
+          style={{ marginRight: 16 }}
+          onPress={() => router.push("/SettingsScreen")}
+        >
+          <Ionicons name="settings-outline" size={24} color="#222" />
+        </Pressable>
+      ),
+    });
+
+    // TEMPORARY
+    // const timer = setTimeout(() => {
+    //   router.push({
+    //     pathname: "/ReviewsScreen",
+    //     params: {
+    //       slug: "nosferatu",
+    //     },
+    //   });
+    // }, 100);
+
+    // return () => clearTimeout(timer);
+  }, []);
 
   function handleInputChange(userInputSlug: string) {
-    console.log(userInputSlug);
     setSlug(userInputSlug);
   }
 

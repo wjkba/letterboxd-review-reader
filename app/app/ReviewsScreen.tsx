@@ -77,8 +77,9 @@ function ReviewsScreen() {
 
 const tagsStyles = {
   p: {
+    fontSize: 16,
     marginBottom: 12,
-    lineHeight: 22,
+    lineHeight: 24,
   },
   li: {
     marginBottom: 6,
@@ -92,7 +93,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   container: {
-    paddingTop: 60,
+    paddingTop: 48,
     flex: 1,
     paddingHorizontal: 16,
   },
