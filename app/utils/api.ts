@@ -14,7 +14,11 @@ export interface ReviewsResponse {
 }
 
 export const api = {
-  async getReviews(slug: string): Promise<ReviewsResponse> {
+  async getReviews(
+    slug: string,
+    startPage: number = 1,
+    limit: number = 5
+  ): Promise<ReviewsResponse> {
     const response = await axios.get(`${API_BASE_URL}/reviews/${slug}`);
     return response.data;
   },

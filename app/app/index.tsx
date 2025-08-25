@@ -1,18 +1,10 @@
 import { useState } from "react";
-import {
-  ActivityIndicator,
-  Button,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
-import { api } from "../utils/api";
+import { Button, StyleSheet, Text, TextInput, View } from "react-native";
+import { router } from "expo-router";
 
 export default function Index() {
-  const [isLoading, setIsLoading] = useState(false);
   const [slug, setSlug] = useState("");
-  const [errorMessage, setErrorMessage] = useState<null | string>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   function handleInputChange(userInputSlug: string) {
     console.log(userInputSlug);
@@ -20,27 +12,19 @@ export default function Index() {
   }
 
   async function handleLoadReviews() {
-    setIsLoading(true);
-    setErrorMessage(null);
+    const trimmedSlug = slug.trim();
 
-    try {
-      const data = await api.getReviews(slug);
-      console.log("🚀 ~ handleLoadReviews ~ data:", data);
-    } catch (error) {
-      setErrorMessage("Something went wrong while loading reviews");
-      console.log(error);
-    } finally {
-      setIsLoading(false);
+    if (!trimmedSlug.length) {
+      setErrorMessage("Please enter a film slug");
+      return;
     }
-  }
 
-  if (isLoading) {
-    return (
-      <View style={styles.centeredContainer}>
-        <ActivityIndicator size="large" color="black" />
-        <Text style={{ marginTop: 10 }}>Loading reviews...</Text>
-      </View>
-    );
+    router.push({
+      pathname: "/ReviewsScreen",
+      params: {
+        slug,
+      },
+    });
   }
 
   return (

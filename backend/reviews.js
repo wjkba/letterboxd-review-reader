@@ -56,11 +56,11 @@ async function extractReviews(reviewLinks) {
   return extractedReviews;
 }
 
-async function getReviews(filmSlug) {
+async function getReviews(filmSlug, startPage = 1, pageCount = 5) {
   const url = `https://letterboxd.com/film/${filmSlug}/reviews/by/activity/`;
   let allReviewLinks = [];
 
-  for (let page = 1; page <= 5; page++) {
+  for (let page = startPage; page <= pageCount; page++) {
     let pageUrl = url;
     if (page > 1) {
       pageUrl = url.replace(/\/$/, `/page/${page}/`);

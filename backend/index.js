@@ -12,10 +12,15 @@ app.get("/", (req, res) => {
 
 app.get("/reviews/:slug", async (req, res) => {
   const { slug } = req.params;
+  const { startPage = 1, limit = 5 } = req.query;
 
   try {
-    const reviews = await getReviews(slug);
-    res.json(reviews);
+    const reviews = await getReviews(
+      slug,
+      parseInt(startPage),
+      parseInt(limit)
+    );
+    res.json({ reviews, startPage });
   } catch (error) {
     console.error("Error fetching reviews:", error);
     res.status(500).json({
