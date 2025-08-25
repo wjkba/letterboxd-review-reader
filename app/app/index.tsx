@@ -35,6 +35,8 @@ export default function Index() {
           onChangeText={handleInputChange}
           placeholder="Letterboxd film slug"
           style={styles.input}
+          keyboardType="default"
+          autoFocus={true}
         />
         <Button onPress={handleLoadReviews} title="Load Reviews" />
       </View>

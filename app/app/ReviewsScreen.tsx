@@ -5,12 +5,15 @@ import {
   FlatList,
   StyleSheet,
   ActivityIndicator,
+  useWindowDimensions,
 } from "react-native";
 import { api, Review } from "../utils/api";
 import { useEffect, useRef, useState } from "react";
+import RenderHtml from "react-native-render-html";
 
 function ReviewsScreen() {
   const { slug } = useLocalSearchParams();
+  const windowWidth = useWindowDimensions().width;
   const [displayedReviews, setDisplayedReviews] = useState<Review[] | null>(
     null
   );
@@ -60,13 +63,27 @@ function ReviewsScreen() {
         renderItem={({ item }) => (
           <View style={styles.reviewItem}>
             <Text style={styles.author}>{item.author}</Text>
-            <Text>{item.html}</Text>
+            <RenderHtml
+              tagsStyles={tagsStyles}
+              contentWidth={windowWidth}
+              source={{ html: item.html }}
+            />
           </View>
         )}
       />
     </View>
   );
 }
+
+const tagsStyles = {
+  p: {
+    marginBottom: 12,
+    lineHeight: 22,
+  },
+  li: {
+    marginBottom: 6,
+  },
+};
 
 const styles = StyleSheet.create({
   centeredContainer: {
@@ -80,7 +97,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   reviewItem: {
-    paddingTop: 32,
+    paddingVertical: 32,
     borderBottomWidth: 1,
     borderBottomColor: "hsla(0, 0%, 90%, 1.00)",
   },
