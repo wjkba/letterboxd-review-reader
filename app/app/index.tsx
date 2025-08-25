@@ -92,6 +92,7 @@ const styles = StyleSheet.create({
   input: {
     width: 200,
     textAlign: "center",
+    backgroundColor: "white",
     borderWidth: 1,
     marginBottom: 8,
     paddingHorizontal: 8,

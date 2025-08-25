@@ -1,6 +1,7 @@
 import axios from "axios";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const API_BASE_URL = "http://192.168.33.12:3000";
+const DEFAULT_API_BASE_URL = "http://192.168.33.12:3000";
 
 export interface Review {
   author: string;
@@ -19,7 +20,14 @@ export const api = {
     startPage: number = 1,
     limit: number = 5
   ): Promise<ReviewsResponse> {
-    const response = await axios.get(`${API_BASE_URL}/reviews/${slug}`);
+    let apiBaseUrl = DEFAULT_API_BASE_URL;
+    const storedIp = await AsyncStorage.getItem("localIp");
+    if (storedIp) {
+      apiBaseUrl = `http://${storedIp}:3000`;
+    }
+    const response = await axios.get(
+      `${apiBaseUrl}/reviews/${slug}?startPage=${startPage}&limit=${limit}`
+    );
     return response.data;
   },
 };
