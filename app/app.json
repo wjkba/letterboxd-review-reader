@@ -12,7 +12,7 @@
       "supportsTablet": true
     },
     "android": {
-      "networkSecurityConfig": "./network_security_config.xml",
+      "usesCleartextTraffic": true,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"

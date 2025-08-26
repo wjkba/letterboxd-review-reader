@@ -38,6 +38,7 @@ function ReviewsScreen() {
         setDisplayedReviews(response.reviews || []);
       } catch (error) {
         console.log(error);
+        console.error(error);
       } finally {
         setIsLoading(false);
         hasFetchedRef.current = true;
