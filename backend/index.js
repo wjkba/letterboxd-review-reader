@@ -30,6 +30,6 @@ app.get("/reviews/:slug", async (req, res) => {
   }
 });
 
-app.listen(port, () => {
-  console.log(`Letterboxd app listening on port ${port}`);
+app.listen(port, "0.0.0.0", () => {
+  console.log(`Letterboxd app listening at http://0.0.0.0:${port}`);
 });
