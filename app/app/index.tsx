@@ -7,8 +7,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { router } from "expo-router";
-import { useNavigation } from "expo-router";
+import { router, useNavigation } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
 export default function Index() {
@@ -28,7 +27,9 @@ export default function Index() {
       ),
     });
 
-    // TEMPORARY
+    //
+    // JUST FOR TESTING
+
     // const timer = setTimeout(() => {
     //   router.push({
     //     pathname: "/ReviewsScreen",

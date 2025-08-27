@@ -50,7 +50,7 @@ async function extractReviews(reviewLinks) {
     };
     extractedReviews.push(extractedReview);
 
-    await delay(2000);
+    await delay(1500);
   }
 
   return extractedReviews;
@@ -69,8 +69,6 @@ async function getReviews(filmSlug, startPage = 1, pageCount = 5) {
     const html = await getHTML(pageUrl);
     const reviewLinks = extractReviewLinks(html);
     allReviewLinks = allReviewLinks.concat(reviewLinks);
-
-    await delay(1000);
   }
 
   const reviews = await extractReviews(allReviewLinks);

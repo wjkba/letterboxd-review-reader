@@ -20,7 +20,9 @@ app.get("/reviews/:slug", async (req, res) => {
       parseInt(startPage),
       parseInt(limit)
     );
-    res.json({ reviews, startPage });
+    const response = { reviews, startPage, limit };
+    console.log(response);
+    res.json(response);
   } catch (error) {
     console.error("Error fetching reviews:", error);
     res.status(500).json({
