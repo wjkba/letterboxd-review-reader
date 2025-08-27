@@ -33,7 +33,8 @@ function ReviewsScreen() {
       try {
         const response = await api.getReviews(
           slug as string,
-          startPageRef.current
+          startPageRef.current,
+          10
         );
         console.log("🚀 ~ loadReviews ~ reviews:", response);
         setDisplayedReviews(response.reviews || []);
@@ -75,7 +76,19 @@ function ReviewsScreen() {
           <View style={styles.reviewItem}>
             <Text style={styles.author}>{item.author}</Text>
             <RenderHtml
-              tagsStyles={tagsStyles}
+              systemFonts={["Literata-Regular"]}
+              baseStyle={{ fontFamily: "Literata-Regular" }}
+              tagsStyles={{
+                p: {
+                  fontSize: 15,
+                  textAlign: "justify",
+                  marginBottom: 12,
+                  lineHeight: 25,
+                },
+                li: {
+                  marginBottom: 6,
+                },
+              }}
               contentWidth={windowWidth}
               source={{ html: item.html }}
             />
@@ -86,17 +99,6 @@ function ReviewsScreen() {
   );
 }
 
-const tagsStyles = {
-  p: {
-    fontSize: 16,
-    marginBottom: 12,
-    lineHeight: 24,
-  },
-  li: {
-    marginBottom: 6,
-  },
-};
-
 const styles = StyleSheet.create({
   centeredContainer: {
     flex: 1,
@@ -105,13 +107,14 @@ const styles = StyleSheet.create({
   },
   container: {
     paddingTop: 48,
+    backgroundColor: "white",
     flex: 1,
-    paddingHorizontal: 16,
+    paddingHorizontal: 24,
   },
   reviewItem: {
     paddingVertical: 32,
     borderBottomWidth: 1,
-    borderBottomColor: "hsla(0, 0%, 90%, 1.00)",
+    borderBottomColor: "hsla(0, 0%, 85%, 1.00)",
   },
   author: {
     fontWeight: "bold",
