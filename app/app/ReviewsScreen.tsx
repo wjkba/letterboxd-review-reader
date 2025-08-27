@@ -18,6 +18,7 @@ function ReviewsScreen() {
     null
   );
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<null | string>(null);
   const startPageRef = useRef(1);
   const hasFetchedRef = useRef(false);
 
@@ -39,6 +40,7 @@ function ReviewsScreen() {
       } catch (error) {
         console.log(error);
         console.error(error);
+        setErrorMessage("Failed to load reviews.");
       } finally {
         setIsLoading(false);
         hasFetchedRef.current = true;
@@ -46,6 +48,14 @@ function ReviewsScreen() {
     }
     loadReviews();
   }, [slug]);
+
+  if (errorMessage) {
+    return (
+      <View style={styles.centeredContainer}>
+        <Text>{errorMessage}</Text>
+      </View>
+    );
+  }
 
   if (isLoading) {
     return (
