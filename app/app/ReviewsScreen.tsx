@@ -10,6 +10,8 @@ import {
 import { api, Review } from "../utils/api";
 import { useEffect, useRef, useState } from "react";
 import RenderHtml from "react-native-render-html";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { saveFilmReview } from "@/utils/reviews";
 
 function ReviewsScreen() {
   const { slug } = useLocalSearchParams();
@@ -29,6 +31,13 @@ function ReviewsScreen() {
         return;
       }
 
+      const localFilmReview = await AsyncStorage.getItem(`filmReview_${slug}`);
+      if (localFilmReview) {
+        const { reviews } = await JSON.parse(localFilmReview);
+        setDisplayedReviews(reviews);
+        return;
+      }
+
       setIsLoading(true);
       try {
         const response = await api.getReviews(
@@ -38,6 +47,7 @@ function ReviewsScreen() {
         );
         console.log("🚀 ~ loadReviews ~ reviews:", response);
         setDisplayedReviews(response.reviews || []);
+        saveFilmReview(slug as string, response.reviews);
       } catch (error) {
         console.log(error);
         console.error(error);
