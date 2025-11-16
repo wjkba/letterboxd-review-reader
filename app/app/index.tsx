@@ -1,3 +1,5 @@
+import { Ionicons } from "@expo/vector-icons";
+import { router, useNavigation } from "expo-router";
 import { useLayoutEffect, useState } from "react";
 import {
   Button,
@@ -7,8 +9,6 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { router, useNavigation } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
 
 export default function Index() {
   const [slug, setSlug] = useState("");
@@ -43,7 +43,8 @@ export default function Index() {
   }, []);
 
   function handleInputChange(userInputSlug: string) {
-    setSlug(userInputSlug);
+    const formattedSlug = userInputSlug.replace(/\s+/g, "-");
+    setSlug(formattedSlug);
   }
 
   async function handleLoadReviews() {
@@ -83,7 +84,7 @@ export default function Index() {
 
 const styles = StyleSheet.create({
   centeredContainer: {
-    flex: 1,
+    flex: 0.9,
     justifyContent: "center",
     alignItems: "center",
   },
