@@ -1,5 +1,4 @@
-import { saveFilmReview } from "@/utils/reviews";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { getLocalFilmReviews, saveFilmReviews } from "@/utils/reviews";
 import { useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -14,7 +13,7 @@ import RenderHtml from "react-native-render-html";
 import { Review, getReviews } from "../utils/scraper";
 
 function ReviewsScreen() {
-  const { slug } = useLocalSearchParams();
+  const slug = useLocalSearchParams().slug as string ;
   const windowWidth = useWindowDimensions().width;
   const [displayedReviews, setDisplayedReviews] = useState<Review[] | null>(
     null
@@ -31,11 +30,9 @@ function ReviewsScreen() {
         return;
       }
 
-      const localFilmReview = await AsyncStorage.getItem(`filmReview_${slug}`);
-      if (localFilmReview) {
-        const { reviews } = await JSON.parse(localFilmReview);
-        setDisplayedReviews(reviews);
-        return;
+      const localFilmReviews = getLocalFilmReviews(slug)
+      if (localFilmReviews) {
+        setDisplayedReviews(localFilmReviews);
       }
 
       setIsLoading(true);
@@ -47,7 +44,7 @@ function ReviewsScreen() {
         );
         console.log("🚀 ~ loadReviews ~ reviews:", reviews);
         setDisplayedReviews(reviews || []);
-        saveFilmReview(slug as string, reviews);
+        saveFilmReviews(slug as string, reviews);
       } catch (error) {
         console.log(error);
         console.error(error);
