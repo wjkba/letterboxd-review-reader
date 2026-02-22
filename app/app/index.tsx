@@ -1,19 +1,27 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useNavigation } from "expo-router";
-import { useLayoutEffect, useState } from "react";
+import { useLayoutEffect, useState, useEffect } from "react";
 import {
   Button,
+  FlatList,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
+  TouchableOpacity,
   View,
 } from "react-native";
+import { getHistory, formatSlugToTitle } from "@/utils/history";
 
 export default function Index() {
   const [slug, setSlug] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [recentFilms, setRecentFilms] = useState<string[]>([]);
   const navigation = useNavigation();
+
+  useEffect(() => {
+    setRecentFilms(getHistory());
+  }, []);
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -63,6 +71,32 @@ export default function Index() {
         <Button onPress={handleLoadReviews} title="Load Reviews" />
       </View>
 
+      {recentFilms.length > 0 && (
+        <View style={styles.recentContainer}>
+          <Text style={styles.recentTitle}>Recent</Text>
+          <FlatList
+            data={recentFilms}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={(item) => item}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={styles.recentItem}
+                onPress={() => {
+                  setSlug(item);
+                  router.push({
+                    pathname: "/ReviewsScreen",
+                    params: { slug: item },
+                  });
+                }}
+              >
+                <Text style={styles.recentText}>{formatSlugToTitle(item)}</Text>
+              </TouchableOpacity>
+            )}
+          />
+        </View>
+      )}
+
       {errorMessage && <Text>{errorMessage}</Text>}
     </View>
   );
@@ -75,7 +109,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   inputContainer: {
-    // maxWidth: 450,
+    marginBottom: 32,
   },
   input: {
     width: 200,
@@ -84,5 +118,25 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginBottom: 8,
     paddingHorizontal: 8,
+  },
+  recentContainer: {
+    alignItems: "center",
+    marginTop: 16,
+  },
+  recentTitle: {
+    fontSize: 14,
+    color: "#666",
+    marginBottom: 8,
+  },
+  recentItem: {
+    backgroundColor: "#f0f0f0",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 16,
+    marginHorizontal: 4,
+  },
+  recentText: {
+    fontSize: 13,
+    color: "#333",
   },
 });

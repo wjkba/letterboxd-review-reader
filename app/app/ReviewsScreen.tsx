@@ -1,4 +1,5 @@
 import { getLocalFilmReviews, saveFilmReviews } from "@/utils/reviews";
+import { addToHistory } from "@/utils/history";
 import { useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -22,6 +23,14 @@ function ReviewsScreen() {
   const [errorMessage, setErrorMessage] = useState<null | string>(null);
   const startPageRef = useRef(1);
   const hasFetchedRef = useRef(false);
+  const hasAddedToHistoryRef = useRef(false);
+
+  useEffect(() => {
+    if (slug && !hasAddedToHistoryRef.current) {
+      addToHistory(slug);
+      hasAddedToHistoryRef.current = true;
+    }
+  }, [slug]);
 
   useEffect(() => {
     async function loadReviews() {
@@ -33,6 +42,7 @@ function ReviewsScreen() {
       const localFilmReviews = getLocalFilmReviews(slug)
       if (localFilmReviews) {
         setDisplayedReviews(localFilmReviews);
+        return;
       }
 
       setIsLoading(true);
