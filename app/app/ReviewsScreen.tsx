@@ -11,7 +11,7 @@ import {
   useWindowDimensions,
 } from "react-native";
 import RenderHtml from "react-native-render-html";
-import { Review, getReviews } from "../utils/scraper";
+import { Review, getReviews, resolveSlug } from "../utils/scraper";
 
 function ReviewsScreen() {
   const slug = useLocalSearchParams().slug as string ;
@@ -20,26 +20,38 @@ function ReviewsScreen() {
     null
   );
   const [isLoading, setIsLoading] = useState(false);
+  const [isResolving, setIsResolving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<null | string>(null);
   const startPageRef = useRef(1);
   const hasFetchedRef = useRef(false);
   const hasAddedToHistoryRef = useRef(false);
+  const resolvedSlugRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (slug && !hasAddedToHistoryRef.current) {
-      addToHistory(slug);
-      hasAddedToHistoryRef.current = true;
-    }
-  }, [slug]);
+    async function resolveAndFetch() {
+      if (!slug) return;
 
-  useEffect(() => {
-    async function loadReviews() {
-      if (hasFetchedRef.current) return;
-      if (!slug) {
-        return;
+      setIsResolving(true);
+      let finalSlug: string;
+
+      try {
+        finalSlug = await resolveSlug(slug);
+        resolvedSlugRef.current = finalSlug;
+      } catch (error) {
+        console.error("Failed to resolve slug:", error);
+        finalSlug = slug;
+        resolvedSlugRef.current = slug;
       }
 
-      const localFilmReviews = getLocalFilmReviews(slug)
+      if (!hasAddedToHistoryRef.current) {
+        addToHistory(finalSlug);
+        hasAddedToHistoryRef.current = true;
+      }
+      setIsResolving(false);
+
+      if (hasFetchedRef.current) return;
+
+      const localFilmReviews = getLocalFilmReviews(finalSlug);
       if (localFilmReviews) {
         setDisplayedReviews(localFilmReviews);
         return;
@@ -47,16 +59,10 @@ function ReviewsScreen() {
 
       setIsLoading(true);
       try {
-        const reviews = await getReviews(
-          slug as string,
-          startPageRef.current,
-          10
-        );
-        console.log("🚀 ~ loadReviews ~ reviews:", reviews);
+        const reviews = await getReviews(finalSlug, startPageRef.current, 10);
         setDisplayedReviews(reviews || []);
-        saveFilmReviews(slug as string, reviews);
+        saveFilmReviews(finalSlug, reviews);
       } catch (error) {
-        console.log(error);
         console.error(error);
         setErrorMessage("Failed to load reviews.");
       } finally {
@@ -64,13 +70,23 @@ function ReviewsScreen() {
         hasFetchedRef.current = true;
       }
     }
-    loadReviews();
+
+    resolveAndFetch();
   }, [slug]);
 
   if (errorMessage) {
     return (
       <View style={styles.centeredContainer}>
         <Text>{errorMessage}</Text>
+      </View>
+    );
+  }
+
+  if (isResolving) {
+    return (
+      <View style={styles.centeredContainer}>
+        <ActivityIndicator size="large" color="black" />
+        <Text style={{ marginTop: 10 }}>Loading movie...</Text>
       </View>
     );
   }

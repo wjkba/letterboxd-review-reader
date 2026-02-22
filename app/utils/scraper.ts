@@ -97,3 +97,25 @@ export async function getReviews(
   const reviews = await extractReviews(allReviewLinks);
   return reviews;
 }
+
+export async function resolveSlug(slugOrTmdbId: string): Promise<string> {
+  if (!slugOrTmdbId.startsWith("tmdb/")) {
+    return slugOrTmdbId;
+  }
+
+  const tmdbId = slugOrTmdbId.replace("tmdb/", "");
+  const url = `https://letterboxd.com/tmdb/${tmdbId}`;
+
+  const response = await fetch(url, {
+    redirect: "follow",
+  });
+
+  const finalUrl = response.url;
+  const match = finalUrl.match(/letterboxd\.com\/film\/([^/]+)/);
+
+  if (match && match[1]) {
+    return match[1];
+  }
+
+  throw new Error("Could not resolve slug from TMDB ID");
+}

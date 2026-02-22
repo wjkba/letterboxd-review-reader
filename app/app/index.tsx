@@ -32,7 +32,7 @@ export default function Index() {
       />
       <Pressable
         style={styles.fab}
-        onPress={() => router.push("/search")}
+        onPress={() => router.push("/SearchScreen")}
       >
         <Ionicons name="search" size={28} color="white" />
       </Pressable>
