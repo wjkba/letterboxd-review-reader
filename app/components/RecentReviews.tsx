@@ -36,22 +36,26 @@ const styles = StyleSheet.create({
   container: {
     width: "100%",
     paddingHorizontal: 24,
+    gap: 8,
   },
   title: {
     fontSize: 14,
     color: "#333",
-    marginBottom: 12,
+    marginBottom: 4,
     fontWeight: "bold",
   },
   item: {
-    paddingVertical: 12,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 6,
+    paddingVertical: 14,
     paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#ccc",
   },
   text: {
-    fontSize: 14,
-    color: "#000",
+    fontSize: 15,
+    color: "#1a1a1a",
+    fontWeight: "500",
   },
   emptyContainer: {
     flex: 1,

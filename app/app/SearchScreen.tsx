@@ -97,22 +97,24 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingTop: 48,
-    backgroundColor: "white",
+    backgroundColor: "#f0f0f0",
   },
   searchContainer: {
     paddingHorizontal: 24,
     paddingBottom: 16,
+    backgroundColor: "#f0f0f0",
     borderBottomWidth: 1,
-    borderBottomColor: "#ccc",
+    borderBottomColor: "#ddd",
   },
   input: {
     width: "100%",
     fontSize: 16,
     paddingHorizontal: 12,
     paddingVertical: 12,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "#fff",
     borderWidth: 1,
     borderColor: "#ccc",
+    borderRadius: 6,
   },
   loadingContainer: {
     flexDirection: "row",
@@ -139,14 +141,20 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingHorizontal: 24,
+    paddingTop: 16,
+    gap: 8,
   },
   resultItem: {
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#ccc",
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 6,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
   },
   resultText: {
-    fontSize: 14,
-    color: "#000",
+    fontSize: 15,
+    color: "#1a1a1a",
+    fontWeight: "500",
   },
 });
