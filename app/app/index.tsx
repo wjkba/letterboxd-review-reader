@@ -26,21 +26,7 @@ export default function Index() {
         </Pressable>
       ),
     });
-
-    //
-    // JUST FOR TESTING
-
-    // const timer = setTimeout(() => {
-    //   router.push({
-    //     pathname: "/ReviewsScreen",
-    //     params: {
-    //       slug: "nosferatu",
-    //     },
-    //   });
-    // }, 100);
-
-    // return () => clearTimeout(timer);
-  }, []);
+  }, [navigation]);
 
   function handleInputChange(userInputSlug: string) {
     const formattedSlug = userInputSlug.replace(/\s+/g, "-");

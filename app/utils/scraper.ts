@@ -69,7 +69,7 @@ async function extractReviews(reviewLinks: ReviewLink[]): Promise<Review[]> {
       html,
     };
     extractedReviews.push(extractedReview);
-    await delay(1500);
+    await delay(500);
   }
 
   return extractedReviews;
