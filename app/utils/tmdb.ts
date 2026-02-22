@@ -1,6 +1,6 @@
 import Constants from "expo-constants";
+import { getStoredTmdbToken } from "./storage";
 
-const TMDB_ACCESS_TOKEN = Constants.expoConfig?.extra?.tmdbReadAccessToken || process.env.EXPO_PUBLIC_TMDB_READ_ACCESS_TOKEN;
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 
 export interface TMDbMovie {
@@ -13,8 +13,17 @@ export interface TMDbSearchResponse {
   results: TMDbMovie[];
 }
 
+function getToken(): string | undefined {
+  const userToken = getStoredTmdbToken();
+  if (userToken) return userToken;
+  
+  return Constants.expoConfig?.extra?.tmdbReadAccessToken || process.env.EXPO_PUBLIC_TMDB_READ_ACCESS_TOKEN;
+}
+
 export async function searchMovies(query: string): Promise<TMDbMovie[]> {
-  if (!query.trim() || !TMDB_ACCESS_TOKEN) {
+  const token = getToken();
+  
+  if (!query.trim() || !token) {
     return [];
   }
 
@@ -24,7 +33,7 @@ export async function searchMovies(query: string): Promise<TMDbMovie[]> {
 
   const response = await fetch(url, {
     headers: {
-      Authorization: `Bearer ${TMDB_ACCESS_TOKEN}`,
+      Authorization: `Bearer ${token}`,
     },
   });
   const data: TMDbSearchResponse = await response.json();

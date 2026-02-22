@@ -107,7 +107,6 @@ const styles = StyleSheet.create({
   },
   input: {
     width: "100%",
-    fontFamily: "monospace",
     fontSize: 16,
     paddingHorizontal: 12,
     paddingVertical: 12,
@@ -122,7 +121,6 @@ const styles = StyleSheet.create({
     paddingVertical: 24,
   },
   loadingText: {
-    fontFamily: "monospace",
     fontSize: 14,
     color: "#666",
     marginLeft: 8,
@@ -133,7 +131,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   emptyText: {
-    fontFamily: "monospace",
     fontSize: 14,
     color: "#666",
   },
@@ -149,7 +146,6 @@ const styles = StyleSheet.create({
     borderBottomColor: "#ccc",
   },
   resultText: {
-    fontFamily: "monospace",
     fontSize: 14,
     color: "#000",
   },

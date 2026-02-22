@@ -1,5 +1,5 @@
 import { TouchableOpacity, View, Text, StyleSheet } from "react-native";
-import { getHistory, formatSlugToTitle } from "@/utils/history";
+import { getHistory, formatSlugToTitle } from "@/utils/storage";
 
 interface RecentReviewsProps {
   onItemPress?: (slug: string) => void;
@@ -39,7 +39,6 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 14,
-    fontFamily: "monospace",
     color: "#333",
     marginBottom: 12,
     fontWeight: "bold",
@@ -52,7 +51,6 @@ const styles = StyleSheet.create({
   },
   text: {
     fontSize: 14,
-    fontFamily: "monospace",
     color: "#000",
   },
   emptyContainer: {
@@ -62,7 +60,6 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-    fontFamily: "monospace",
     color: "#666",
   },
 });

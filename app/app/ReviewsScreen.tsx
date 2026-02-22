@@ -1,5 +1,5 @@
 import { getLocalFilmReviews, saveFilmReviews } from "@/utils/reviews";
-import { addToHistory } from "@/utils/history";
+import { addToHistory } from "@/utils/storage";
 import { useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
