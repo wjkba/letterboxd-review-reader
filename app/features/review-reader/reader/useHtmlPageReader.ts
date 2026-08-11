@@ -33,6 +33,7 @@ type Job = {
 };
 
 const STATUS_RESERVE = 28;
+const PREFETCH_REVIEW_WINDOW = 2;
 
 export function useHtmlPageReader(options: Options) {
   const { documentKey, reviews, viewportHeight, contentWidth, hasMore, isLoadingMore, loadMoreError, onLoadMore, canonicalSlug } = options;
@@ -100,6 +101,13 @@ export function useHtmlPageReader(options: Options) {
     const requestId = ++requestIdRef.current;
     setMeasurement({ page, generation: job.generation, requestId });
   }, []);
+
+  const requestMore = useCallback(() => {
+    if (!hasMore || isLoadingMore || loadMoreError || loadRequestedRef.current) return false;
+    loadRequestedRef.current = true;
+    void onLoadMore();
+    return true;
+  }, [hasMore, isLoadingMore, loadMoreError, onLoadMore]);
 
   const startReview = useCallback((job: Job, reviewIndex: number) => {
     const review = job.reviews[reviewIndex];
@@ -179,13 +187,12 @@ export function useHtmlPageReader(options: Options) {
     if (nextReview < job.reviews.length) { startReview(job, nextReview); return; }
     // A request is only started by an explicit tail tap. Measurement may
     // finish that tap's pending intent, but must never create one itself.
-    if (pendingNextRef.current && job.reviewIndex === reviewsRef.current.length - 1 && hasMore && !loadMoreError && !isLoadingMore && !loadRequestedRef.current) {
+    if (pendingNextRef.current && job.reviewIndex === reviewsRef.current.length - 1) {
       pendingNextRef.current = true;
-      loadRequestedRef.current = true;
-      void onLoadMore();
+      requestMore();
     }
     setMeasurement(undefined);
-  }, [hasMore, isLoadingMore, loadMoreError, onLoadMore, publish, startReview, setCandidate, viewportHeight]);
+  }, [publish, requestMore, startReview, setCandidate, viewportHeight]);
 
   // Appends extend the existing job. Already-generated pages are never discarded.
   useEffect(() => {
@@ -230,8 +237,12 @@ export function useHtmlPageReader(options: Options) {
     if (restore) {
       const match = findReview(currentReviews, restore);
       if (match < 0) {
-        if (hasMore && !isLoadingMore && !loadMoreError && !restoreFetchRequestedRef.current) { restoreFetchRequestedRef.current = true; void onLoadMore(); }
-        else if (!hasMore && !isLoadingMore) { if (canonicalSlug) clearReadingPosition(canonicalSlug); pendingRestoreRef.current = null; }
+        // Restoring a later review is the only deliberate non-tap fetch path.
+        // It has its own guard and never changes the current visible page.
+        if (hasMore && !isLoadingMore && !restoreFetchRequestedRef.current) {
+          restoreFetchRequestedRef.current = requestMore();
+        }
+        if (!hasMore && !isLoadingMore) { if (canonicalSlug) clearReadingPosition(canonicalSlug); pendingRestoreRef.current = null; }
         return;
       }
       startIndex = match;
@@ -242,7 +253,7 @@ export function useHtmlPageReader(options: Options) {
     jobRef.current = job;
     acceptedMeasurementRef.current = null;
     startReview(job, startIndex);
-  }, [canonicalSlug, contentWidth, documentKey, hasMore, isLoadingMore, loadMoreError, onLoadMore, startReview, viewportHeight, layoutVersion]);
+  }, [canonicalSlug, contentWidth, documentKey, hasMore, isLoadingMore, requestMore, startReview, viewportHeight, layoutVersion]);
 
   const commitPosition = useCallback((index: number) => {
     if (!canonicalSlug) return;
@@ -257,17 +268,25 @@ export function useHtmlPageReader(options: Options) {
     if (indexRef.current > 0) { indexRef.current -= 1; setPageIndex(indexRef.current); commitPosition(indexRef.current); }
   }, [commitPosition]);
   const next = useCallback(() => {
-    if (indexRef.current < pagesRef.current.length - 1) { pendingNextRef.current = false; indexRef.current += 1; setPageIndex(indexRef.current); commitPosition(indexRef.current); return; }
+    if (indexRef.current < pagesRef.current.length - 1) {
+      pendingNextRef.current = false;
+      indexRef.current += 1;
+      setPageIndex(indexRef.current);
+      commitPosition(indexRef.current);
+      const newlyVisible = pagesRef.current[indexRef.current];
+      if (newlyVisible && newlyVisible.reviewIndex >= reviewsRef.current.length - PREFETCH_REVIEW_WINDOW) requestMore();
+      return;
+    }
     if (!pagesRef.current.length && !measurement) return;
     if (loadMoreError || !hasMore || isLoadingMore || loadRequestedRef.current) { pendingNextRef.current = false; return; }
     if (measurement) {
       pendingNextRef.current = true;
+      if (jobRef.current && jobRef.current.reviewIndex >= reviewsRef.current.length - PREFETCH_REVIEW_WINDOW) requestMore();
       return;
     }
     pendingNextRef.current = true;
-    loadRequestedRef.current = true;
-    void onLoadMore();
-  }, [commitPosition, hasMore, isLoadingMore, loadMoreError, measurement, onLoadMore]);
+    requestMore();
+  }, [commitPosition, hasMore, isLoadingMore, loadMoreError, measurement, requestMore]);
 
   const invalidateLayout = useCallback(() => setLayoutVersion((value) => value + 1), []);
   const complete = !measurement && jobRef.current?.reviewIndex === reviews.length - 1 && !hasMore && !isLoadingMore;
