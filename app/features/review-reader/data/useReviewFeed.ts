@@ -18,9 +18,12 @@ export interface ReviewFeedViewModel {
   loadMoreError: string | null;
   hasMore: boolean;
   resolvedSlug: string | null;
+  batchRanges: ReviewBatchRange[];
   loadMore: () => Promise<void>;
   retryLoadMore: () => Promise<void>;
 }
+
+export interface ReviewBatchRange { start: number; end: number }
 
 type Batch = Pick<ReviewsResponse, "reviews" | "nextPage" | "hasMore">;
 type FeedState = {
@@ -32,6 +35,7 @@ type FeedState = {
   loadMoreError: string | null;
   hasMore: boolean;
   resolvedSlug: string | null;
+  batchRanges: ReviewBatchRange[];
 };
 type FeedAction =
   | { type: "reset"; resolving: boolean }
@@ -39,22 +43,22 @@ type FeedAction =
   | { type: "initialSuccess"; batch: Batch; resolvedSlug: string }
   | { type: "initialError"; message: string }
   | { type: "moreStart" }
-  | { type: "moreSuccess"; reviews: Review[]; hasMore: boolean }
+  | { type: "moreSuccess"; reviews: Review[]; hasMore: boolean; range: ReviewBatchRange }
   | { type: "moreError"; message: string };
 
 const initialState: FeedState = {
   reviews: [], isResolving: false, isLoading: false, errorMessage: null,
-  isLoadingMore: false, loadMoreError: null, hasMore: true, resolvedSlug: null,
+  isLoadingMore: false, loadMoreError: null, hasMore: true, resolvedSlug: null, batchRanges: [],
 };
 
 function feedReducer(state: FeedState, action: FeedAction): FeedState {
   switch (action.type) {
     case "reset": return { ...initialState, isResolving: action.resolving };
     case "initialStart": return { ...state, isResolving: false, isLoading: true, errorMessage: null };
-    case "initialSuccess": return { ...state, reviews: action.batch.reviews, isResolving: false, isLoading: false, errorMessage: null, hasMore: action.batch.hasMore, resolvedSlug: action.resolvedSlug };
+    case "initialSuccess": return { ...state, reviews: action.batch.reviews, isResolving: false, isLoading: false, errorMessage: null, hasMore: action.batch.hasMore, resolvedSlug: action.resolvedSlug, batchRanges: action.batch.reviews.length ? [{ start: 0, end: action.batch.reviews.length }] : [] };
     case "initialError": return { ...state, isResolving: false, isLoading: false, errorMessage: action.message };
     case "moreStart": return { ...state, isLoadingMore: true, loadMoreError: null };
-    case "moreSuccess": return { ...state, reviews: action.reviews, isLoadingMore: false, loadMoreError: null, hasMore: action.hasMore };
+    case "moreSuccess": return { ...state, reviews: action.reviews, isLoadingMore: false, loadMoreError: null, hasMore: action.hasMore, batchRanges: [...state.batchRanges, action.range] };
     case "moreError": return { ...state, isLoadingMore: false, loadMoreError: action.message };
   }
 }
@@ -146,7 +150,7 @@ export function useReviewFeed(slug?: string): ReviewFeedViewModel {
       reviewsRef.current = merged;
       nextPage.current = batch.nextPage;
       moreRef.current = batch.hasMore;
-      dispatch({ type: "moreSuccess", reviews: merged, hasMore: batch.hasMore });
+      dispatch({ type: "moreSuccess", reviews: merged, hasMore: batch.hasMore, range: { start: reviewsRef.current.length - batch.reviews.length, end: merged.length } });
       saveFilmReviews(slug, merged, { nextPage: batch.nextPage, hasMore: batch.hasMore });
     } catch (error) {
       if (requestEpoch === epoch.current) dispatch({ type: "moreError", message: error instanceof Error ? error.message : "Failed to load more reviews." });

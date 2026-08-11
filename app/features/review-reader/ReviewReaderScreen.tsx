@@ -12,7 +12,7 @@ export function ReviewReaderScreen({ slug }: ReviewReaderScreenProps) {
   const [viewportHeight, setViewportHeight] = useState(0);
   const onLayout = useCallback((height: number) => setViewportHeight((current) => current === height ? current : height), []);
   const contentWidth = Math.max(0, width - 48);
-  const reader = useHtmlPageReader({ documentKey: feed.resolvedSlug ?? slug, canonicalSlug: feed.resolvedSlug, reviews: feed.reviews, viewportHeight, contentWidth, hasMore: feed.hasMore, isLoadingMore: feed.isLoadingMore, loadMoreError: feed.loadMoreError, onLoadMore: feed.loadMore });
+  const reader = useHtmlPageReader({ documentKey: feed.resolvedSlug ?? slug, canonicalSlug: feed.resolvedSlug, reviews: feed.reviews, batchRanges: feed.batchRanges, viewportHeight, contentWidth, hasMore: feed.hasMore, isLoadingMore: feed.isLoadingMore, loadMoreError: feed.loadMoreError, onLoadMore: feed.loadMore });
 
   if (feed.isResolving || feed.isLoading) return <StateView label="Loading reviews…" busy />;
   if (feed.errorMessage) return <StateView label={feed.errorMessage} />;

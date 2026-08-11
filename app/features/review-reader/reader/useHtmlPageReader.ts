@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ReaderPage } from "../components/ReaderContent";
 import { countWords, getBlockFragments, splitAtWordBoundary } from "./htmlPagination";
+import type { ReviewBatchRange } from "../data/useReviewFeed";
 import { clearReadingPosition, getReadingPosition, reviewFingerprint, saveReadingPosition, type ReadingPosition } from "@/utils/storage";
 
 export type HtmlReview = { author: string; html: string };
@@ -16,6 +17,7 @@ type Options = {
   isLoadingMore: boolean;
   loadMoreError: string | null;
   onLoadMore: () => Promise<void> | void;
+  batchRanges?: readonly ReviewBatchRange[];
 };
 
 type Anchor = { reviewIndex: number; wordOffset: number };
@@ -33,10 +35,10 @@ type Job = {
 };
 
 const STATUS_RESERVE = 28;
-const PREFETCH_REVIEW_WINDOW = 2;
+const MAX_RESTORE_FETCHES = 8;
 
 export function useHtmlPageReader(options: Options) {
-  const { documentKey, reviews, viewportHeight, contentWidth, hasMore, isLoadingMore, loadMoreError, onLoadMore, canonicalSlug } = options;
+  const { documentKey, reviews, viewportHeight, contentWidth, hasMore, isLoadingMore, loadMoreError, onLoadMore, canonicalSlug, batchRanges } = options;
   const [pages, setPages] = useState<ReaderPage[]>([]);
   const [pageIndex, setPageIndex] = useState(0);
   const [measurement, setMeasurement] = useState<Measurement>();
@@ -56,6 +58,11 @@ export function useHtmlPageReader(options: Options) {
   const resetPendingRef = useRef(false);
   const pendingRestoreRef = useRef<ReadingPosition | null>(null);
   const restoreFetchRequestedRef = useRef(false);
+  const restoreFetchCountRef = useRef(0);
+  const batchRangesRef = useRef<ReviewBatchRange[]>([]);
+  const loadedReviewCountRef = useRef(0);
+  const authorizedBatchRef = useRef<number | null>(null);
+  const bootstrapDocumentRef = useRef<string | null>(null);
   const commitPositionRef = useRef<(index: number) => void>(() => undefined);
 
   useEffect(() => {
@@ -71,6 +78,11 @@ export function useHtmlPageReader(options: Options) {
     anchorRef.current = null;
     pendingRestoreRef.current = canonicalSlug ? getReadingPosition(canonicalSlug) : null;
     restoreFetchRequestedRef.current = false;
+    restoreFetchCountRef.current = 0;
+    batchRangesRef.current = [];
+    loadedReviewCountRef.current = 0;
+    authorizedBatchRef.current = null;
+    bootstrapDocumentRef.current = null;
     resetPendingRef.current = true;
     setPages([]);
     setPageIndex(0);
@@ -102,12 +114,41 @@ export function useHtmlPageReader(options: Options) {
     setMeasurement({ page, generation: job.generation, requestId });
   }, []);
 
-  const requestMore = useCallback(() => {
-    if (!hasMore || isLoadingMore || loadMoreError || loadRequestedRef.current) return false;
+  const requestMore = useCallback((batchId: number) => {
+    if (authorizedBatchRef.current !== batchId || !hasMore || isLoadingMore || loadMoreError || loadRequestedRef.current) return false;
+    authorizedBatchRef.current = null;
     loadRequestedRef.current = true;
     void onLoadMore();
     return true;
   }, [hasMore, isLoadingMore, loadMoreError, onLoadMore]);
+
+  const batchForReview = useCallback((reviewIndex: number): number => {
+    const ranges = batchRangesRef.current;
+    const index = ranges.findIndex((range) => reviewIndex >= range.start && reviewIndex < range.end);
+    return index;
+  }, []);
+
+  useEffect(() => {
+    if (resetPendingRef.current || !reviews.length) return;
+    if (batchRanges?.length) {
+      batchRangesRef.current = batchRanges.map((range) => ({ ...range }));
+    } else if (!loadedReviewCountRef.current) {
+      batchRangesRef.current = [{ start: 0, end: reviews.length }];
+    } else if (reviews.length > loadedReviewCountRef.current) {
+      batchRangesRef.current = [...batchRangesRef.current, { start: loadedReviewCountRef.current, end: reviews.length }];
+    }
+    loadedReviewCountRef.current = reviews.length;
+  }, [batchRanges, reviews]);
+
+  // Exactly one bootstrap authorization belongs to this document. Later
+  // batches require a forward-navigation authorization.
+  useEffect(() => {
+    if (resetPendingRef.current || !reviews.length || !hasMore || bootstrapDocumentRef.current === documentKey) return;
+    if (!batchRangesRef.current.length) return;
+    bootstrapDocumentRef.current = documentKey;
+    authorizedBatchRef.current = 0;
+    requestMore(0);
+  }, [documentKey, hasMore, requestMore, reviews.length]);
 
   const startReview = useCallback((job: Job, reviewIndex: number) => {
     const review = job.reviews[reviewIndex];
@@ -189,10 +230,11 @@ export function useHtmlPageReader(options: Options) {
     // finish that tap's pending intent, but must never create one itself.
     if (pendingNextRef.current && job.reviewIndex === reviewsRef.current.length - 1) {
       pendingNextRef.current = true;
-      requestMore();
+      const batchId = batchForReview(job.reviewIndex);
+      if (batchId >= 0) requestMore(batchId);
     }
     setMeasurement(undefined);
-  }, [publish, requestMore, startReview, setCandidate, viewportHeight]);
+  }, [batchForReview, publish, requestMore, startReview, setCandidate, viewportHeight]);
 
   // Appends extend the existing job. Already-generated pages are never discarded.
   useEffect(() => {
@@ -216,7 +258,8 @@ export function useHtmlPageReader(options: Options) {
 
   useEffect(() => {
     if (!loadMoreError) return;
-    pendingNextRef.current = false;
+    // Preserve a tail tap while the request failed; an explicit retry can
+    // still satisfy that navigation intent when the batch arrives.
     loadRequestedRef.current = false;
   }, [loadMoreError]);
 
@@ -239,8 +282,13 @@ export function useHtmlPageReader(options: Options) {
       if (match < 0) {
         // Restoring a later review is the only deliberate non-tap fetch path.
         // It has its own guard and never changes the current visible page.
-        if (hasMore && !isLoadingMore && !restoreFetchRequestedRef.current) {
-          restoreFetchRequestedRef.current = requestMore();
+        if (hasMore && !isLoadingMore && !restoreFetchRequestedRef.current && restoreFetchCountRef.current < MAX_RESTORE_FETCHES) {
+          const batchId = batchRangesRef.current.length - 1;
+          if (batchId >= 0) {
+            authorizedBatchRef.current = batchId;
+            restoreFetchRequestedRef.current = requestMore(batchId);
+            if (restoreFetchRequestedRef.current) restoreFetchCountRef.current += 1;
+          }
         }
         if (!hasMore && !isLoadingMore) { if (canonicalSlug) clearReadingPosition(canonicalSlug); pendingRestoreRef.current = null; }
         return;
@@ -274,19 +322,36 @@ export function useHtmlPageReader(options: Options) {
       setPageIndex(indexRef.current);
       commitPosition(indexRef.current);
       const newlyVisible = pagesRef.current[indexRef.current];
-      if (newlyVisible && newlyVisible.reviewIndex >= reviewsRef.current.length - PREFETCH_REVIEW_WINDOW) requestMore();
+      if (newlyVisible) {
+        const batchId = batchForReview(newlyVisible.reviewIndex);
+        if (batchId === batchRangesRef.current.length - 1) {
+          authorizedBatchRef.current = batchId;
+          requestMore(batchId);
+        }
+      }
       return;
     }
     if (!pagesRef.current.length && !measurement) return;
-    if (loadMoreError || !hasMore || isLoadingMore || loadRequestedRef.current) { pendingNextRef.current = false; return; }
+    if (loadMoreError || !hasMore) { pendingNextRef.current = false; return; }
+    if (isLoadingMore || loadRequestedRef.current) { pendingNextRef.current = true; return; }
     if (measurement) {
       pendingNextRef.current = true;
-      if (jobRef.current && jobRef.current.reviewIndex >= reviewsRef.current.length - PREFETCH_REVIEW_WINDOW) requestMore();
+      if (jobRef.current) {
+        const batchId = batchForReview(jobRef.current.reviewIndex);
+        if (batchId === batchRangesRef.current.length - 1) {
+          authorizedBatchRef.current = batchId;
+          requestMore(batchId);
+        }
+      }
       return;
     }
     pendingNextRef.current = true;
-    requestMore();
-  }, [commitPosition, hasMore, isLoadingMore, loadMoreError, measurement, requestMore]);
+    const batchId = batchRangesRef.current.length - 1;
+    if (batchId >= 0) {
+      authorizedBatchRef.current = batchId;
+      requestMore(batchId);
+    }
+  }, [batchForReview, commitPosition, hasMore, isLoadingMore, loadMoreError, measurement, requestMore]);
 
   const invalidateLayout = useCallback(() => setLayoutVersion((value) => value + 1), []);
   const complete = !measurement && jobRef.current?.reviewIndex === reviews.length - 1 && !hasMore && !isLoadingMore;
