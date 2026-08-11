@@ -17,6 +17,8 @@ export default function RootLayout() {
     }
   }, [loaded, error]);
 
+  if (!loaded && !error) return null;
+
   return (
     <Stack screenOptions={{ title: "" }}>
       <Stack.Screen name="index" options={{ title: "" }} />

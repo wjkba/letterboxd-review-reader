@@ -5,7 +5,21 @@ const storage = createMMKV();
 export const STORAGE_KEYS = {
   TMDB_ACCESS_TOKEN: "tmdb_access_token",
   RECENT_FILMS: "recent_films",
+  READER_POSITION_PREFIX: "review_reader_position:",
 } as const;
+
+export type ReadingPosition = { version: 1; fingerprint: string; reviewIndexHint: number; wordOffset: number };
+export function reviewFingerprint(author: string, html: string): string { return `${author.replace(/\s+/g, " ").trim()}\u001f${html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim()}`; }
+function positionKey(slug: string): string { return `${STORAGE_KEYS.READER_POSITION_PREFIX}${slug}`; }
+export function getReadingPosition(slug: string): ReadingPosition | null {
+  const raw = storage.getString(positionKey(slug)); if (!raw) return null;
+  try { const value: unknown = JSON.parse(raw); if (!value || typeof value !== "object") return null; const p = value as Partial<ReadingPosition>;
+    if (p.version !== 1 || typeof p.fingerprint !== "string" || !p.fingerprint || !Number.isInteger(p.reviewIndexHint) || (p.reviewIndexHint as number) < 0 || !Number.isFinite(p.wordOffset) || (p.wordOffset as number) < 0) return null;
+    return { version: 1, fingerprint: p.fingerprint, reviewIndexHint: p.reviewIndexHint as number, wordOffset: p.wordOffset as number };
+  } catch { return null; }
+}
+export function saveReadingPosition(slug: string, position: Omit<ReadingPosition, "version">): void { if (slug && position.fingerprint && Number.isInteger(position.reviewIndexHint) && position.reviewIndexHint >= 0 && Number.isFinite(position.wordOffset) && position.wordOffset >= 0) storage.set(positionKey(slug), JSON.stringify({ version: 1, ...position })); }
+export function clearReadingPosition(slug: string): void { storage.remove(positionKey(slug)); }
 
 export function getStoredTmdbToken(): string | undefined {
   return storage.getString(STORAGE_KEYS.TMDB_ACCESS_TOKEN);

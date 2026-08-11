@@ -60,6 +60,22 @@ function extractReviewLinks(html: string): ReviewLink[] {
   return reviewLinks;
 }
 
+function hasNextListingPage(html: string): boolean {
+  const root = parse(html);
+  // Letterboxd's review paginator is the `.pagination` block (with the
+  // optional `.paginate-pages` inner block). Do not let unrelated site-wide
+  // navigation links prove that the review listing has another page.
+  const paginators = root.querySelectorAll(".pagination");
+  return paginators.some((paginator) => {
+    const pages = paginator.querySelector(".paginate-pages") || paginator;
+    return pages.querySelectorAll("a").some((link) => {
+    const classes = link.getAttribute("class")?.split(/\s+/) ?? [];
+    return Boolean(link.getAttribute("href")) &&
+      (classes.includes("next") || classes.includes("paginate-next"));
+    });
+  });
+}
+
 async function extractReviews(reviewLinks: ReviewLink[]): Promise<Review[]> {
   const extractedReviews: Review[] = [];
 
@@ -97,8 +113,10 @@ export async function fetchReviewsBatch(
   const allReviewLinks: ReviewLink[] = [];
   let currentPage = startPage - 1;
   let hasMore = true;
+  let foundEligibleReview = false;
+  const defensivePageLimit = Math.max(pageCount, 1) + 100;
 
-  for (let page = startPage; page < startPage + pageCount; page++) {
+  for (let page = startPage; page < startPage + defensivePageLimit; page++) {
     let pageUrl = url;
     if (page > 1) {
       pageUrl = url.replace(/\/$/, `/page/${page}/`);
@@ -107,12 +125,16 @@ export async function fetchReviewsBatch(
     const html = await getHTML(pageUrl);
     const reviewLinks = extractReviewLinks(html);
     currentPage = page;
-    if (reviewLinks.length === 0) {
-      hasMore = false;
-      break;
-    }
     allReviewLinks.push(...reviewLinks);
+    foundEligibleReview ||= reviewLinks.length > 0;
+    hasMore = hasNextListingPage(html);
+    // Empty listing pages can still contain a Next link (for example when
+    // all reviews on that page lack a full-text endpoint). Keep walking until
+    // we find usable reviews or the listing itself reaches its end. Once a
+    // usable page is found, honor the requested batch size.
+    if (!hasMore || (foundEligibleReview && page >= startPage + pageCount - 1)) break;
   }
+  if (currentPage >= startPage + defensivePageLimit - 1) hasMore = false;
 
   const reviews = await extractReviews(allReviewLinks);
   return {

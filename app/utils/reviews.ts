@@ -8,7 +8,10 @@ export interface CachedFilmReviews {
   nextPage: number | null;
   hasMore: boolean;
   updatedAt: string;
+  cacheVersion: number;
 }
+
+const CACHE_VERSION = 2;
 
 export interface ReviewCachePagination {
   nextPage: number | null;
@@ -26,6 +29,7 @@ export function saveFilmReviews(
     nextPage: pagination.nextPage,
     hasMore: pagination.hasMore,
     updatedAt: new Date().toISOString(),
+    cacheVersion: CACHE_VERSION,
   };
   storage.set(`film_${slug}`, JSON.stringify(filmReview));
 }
@@ -55,13 +59,17 @@ export function getFilmReviewsCache(slug: string): CachedFilmReviews | null {
     const nextPage = Number.isInteger(record.nextPage) && (record.nextPage as number) > 0
       ? (record.nextPage as number)
       : null;
+    const isCurrentCache = record.cacheVersion === CACHE_VERSION;
     return {
       slug,
       reviews,
-      nextPage,
-      // Legacy records have no end marker, so they remain eligible for fetching.
-      hasMore: typeof record.hasMore === "boolean" ? record.hasMore : true,
+      // Old records may have been marked terminal solely because a page had
+      // no eligible links. Re-open those records once under the corrected
+      // listing-page cursor semantics; a fresh write upgrades the schema.
+      nextPage: isCurrentCache ? nextPage : nextPage ?? (reviews.length ? 2 : 1),
+      hasMore: isCurrentCache ? (typeof record.hasMore === "boolean" ? record.hasMore : true) : true,
       updatedAt: typeof record.updatedAt === "string" ? record.updatedAt : "",
+      cacheVersion: isCurrentCache ? CACHE_VERSION : Number(record.cacheVersion) || 1,
     };
   } catch {
     return null;
