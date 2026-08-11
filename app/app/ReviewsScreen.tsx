@@ -1,17 +1,89 @@
-import { getLocalFilmReviews, saveFilmReviews } from "@/utils/reviews";
+import {
+  getFilmReviewsCache,
+  saveFilmReviews,
+} from "@/utils/reviews";
 import { addToHistory } from "@/utils/storage";
 import { useLocalSearchParams } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  ListRenderItem,
+  Pressable,
   StyleSheet,
   Text,
   View,
   useWindowDimensions,
 } from "react-native";
 import RenderHtml from "react-native-render-html";
-import { Review, getReviews, resolveSlug } from "../utils/scraper";
+import { Review, fetchReviewsBatch, resolveSlug } from "../utils/scraper";
+
+type PaginatedReviewBatch = {
+  reviews: Review[];
+  nextPage: number | null;
+  hasMore: boolean;
+};
+
+type CachedReviews = Review[] | Partial<PaginatedReviewBatch>;
+
+const REVIEW_SYSTEM_FONTS = ["Literata-Regular"];
+const REVIEW_BASE_STYLE = { fontFamily: "Literata-Regular" };
+const REVIEW_TAGS_STYLES = {
+  p: {
+    fontSize: 15,
+    textAlign: "justify" as const,
+    marginBottom: 12,
+    lineHeight: 25,
+  },
+  li: {
+    marginBottom: 6,
+  },
+};
+
+type ReviewRowProps = {
+  item: Review;
+  contentWidth: number;
+};
+
+const ReviewRow = memo(
+  function ReviewRow({ item, contentWidth }: ReviewRowProps) {
+    return (
+      <View style={styles.reviewItem}>
+        <Text style={styles.author}>{item.author}</Text>
+        <RenderHtml
+          systemFonts={REVIEW_SYSTEM_FONTS}
+          baseStyle={REVIEW_BASE_STYLE}
+          tagsStyles={REVIEW_TAGS_STYLES}
+          contentWidth={contentWidth}
+          source={{ html: item.html }}
+        />
+      </View>
+    );
+  },
+  (previous, next) =>
+    previous.item === next.item && previous.contentWidth === next.contentWidth
+);
+
+const reviewKeyExtractor = (_item: Review, index: number) => index.toString();
+
+function normalizeBatch(value: unknown): PaginatedReviewBatch {
+  // The array branch keeps this screen compatible with the current scraper
+  // while the data layer moves to the paginated response below.
+  if (Array.isArray(value)) {
+    return {
+      reviews: value,
+      nextPage: value.length ? 2 : null,
+      hasMore: value.length > 0,
+    };
+  }
+
+  const batch = (value || {}) as Partial<PaginatedReviewBatch>;
+  return {
+    reviews: batch.reviews || [],
+    nextPage: batch.nextPage ?? (batch.hasMore ? 2 : null),
+    hasMore: batch.hasMore ?? false,
+  };
+}
 
 function ReviewsScreen() {
   const slug = useLocalSearchParams().slug as string ;
@@ -20,14 +92,73 @@ function ReviewsScreen() {
     null
   );
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isResolving, setIsResolving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<null | string>(null);
-  const startPageRef = useRef(1);
-  const hasFetchedRef = useRef(false);
+  const [paginationError, setPaginationError] = useState(false);
+  const reviewListRef = useRef<Review[]>([]);
+  const nextPageRef = useRef<number | null>(1);
+  const hasMoreRef = useRef(true);
+  const isLoadingMoreRef = useRef(false);
+  const screenGenerationRef = useRef(0);
   const hasAddedToHistoryRef = useRef(false);
   const resolvedSlugRef = useRef<string | null>(null);
+  const renderReview: ListRenderItem<Review> = useCallback(
+    ({ item }) => <ReviewRow item={item} contentWidth={windowWidth} />,
+    [windowWidth]
+  );
+
+  const loadNextPage = useCallback(async () => {
+    const finalSlug = resolvedSlugRef.current;
+    const nextPage = nextPageRef.current;
+    const requestGeneration = screenGenerationRef.current;
+    if (!finalSlug || nextPage === null || !hasMoreRef.current || isLoadingMoreRef.current) {
+      return;
+    }
+
+    isLoadingMoreRef.current = true;
+    setIsLoadingMore(true);
+    setPaginationError(false);
+    try {
+      const batch = normalizeBatch(
+        await fetchReviewsBatch(finalSlug, nextPage, 1) as unknown
+      );
+      if (requestGeneration !== screenGenerationRef.current) return;
+      const mergedReviews = [...reviewListRef.current, ...batch.reviews];
+      reviewListRef.current = mergedReviews;
+      setDisplayedReviews(mergedReviews);
+      nextPageRef.current = batch.nextPage;
+      hasMoreRef.current = batch.hasMore;
+      saveFilmReviews(finalSlug, mergedReviews, {
+        nextPage: batch.nextPage,
+        hasMore: batch.hasMore,
+      });
+    } catch (error) {
+      console.error("Failed to load more reviews:", error);
+      if (requestGeneration === screenGenerationRef.current) {
+        setPaginationError(true);
+      }
+    } finally {
+      if (requestGeneration === screenGenerationRef.current) {
+        isLoadingMoreRef.current = false;
+        setIsLoadingMore(false);
+      }
+    }
+  }, []);
 
   useEffect(() => {
+    let cancelled = false;
+    screenGenerationRef.current += 1;
+    setDisplayedReviews(null);
+    reviewListRef.current = [];
+    setIsLoading(false);
+    setIsLoadingMore(false);
+    setErrorMessage(null);
+    setPaginationError(false);
+    nextPageRef.current = 1;
+    hasMoreRef.current = true;
+    isLoadingMoreRef.current = false;
+
     async function resolveAndFetch() {
       if (!slug) return;
 
@@ -43,35 +174,52 @@ function ReviewsScreen() {
         resolvedSlugRef.current = slug;
       }
 
+      if (cancelled) return;
+
       if (!hasAddedToHistoryRef.current) {
         addToHistory(finalSlug);
         hasAddedToHistoryRef.current = true;
       }
       setIsResolving(false);
 
-      if (hasFetchedRef.current) return;
-
-      const localFilmReviews = getLocalFilmReviews(finalSlug);
+      const localFilmReviews = getFilmReviewsCache(finalSlug) as CachedReviews | null;
       if (localFilmReviews) {
-        setDisplayedReviews(localFilmReviews);
+        const cachedBatch = normalizeBatch(localFilmReviews);
+        reviewListRef.current = cachedBatch.reviews;
+        setDisplayedReviews(cachedBatch.reviews);
+        nextPageRef.current = cachedBatch.nextPage;
+        hasMoreRef.current = cachedBatch.hasMore;
         return;
       }
 
       setIsLoading(true);
       try {
-        const reviews = await getReviews(finalSlug, startPageRef.current, 10);
-        setDisplayedReviews(reviews || []);
-        saveFilmReviews(finalSlug, reviews);
+        const batch = normalizeBatch(
+          await fetchReviewsBatch(finalSlug, 1, 1) as unknown
+        );
+        if (cancelled) return;
+        reviewListRef.current = batch.reviews;
+        setDisplayedReviews(batch.reviews);
+        nextPageRef.current = batch.nextPage;
+        hasMoreRef.current = batch.hasMore;
+        // Keep the existing cache writer compatible; the cache owner can
+        // additionally persist nextPage/hasMore without changing this UI.
+        saveFilmReviews(finalSlug, batch.reviews, {
+          nextPage: batch.nextPage,
+          hasMore: batch.hasMore,
+        });
       } catch (error) {
         console.error(error);
-        setErrorMessage("Failed to load reviews.");
+        if (!cancelled) setErrorMessage("Failed to load reviews.");
       } finally {
-        setIsLoading(false);
-        hasFetchedRef.current = true;
+        if (!cancelled) setIsLoading(false);
       }
     }
 
     resolveAndFetch();
+    return () => {
+      cancelled = true;
+    };
   }, [slug]);
 
   if (errorMessage) {
@@ -103,30 +251,30 @@ function ReviewsScreen() {
   return (
     <View style={styles.container}>
       <FlatList
-        data={displayedReviews}
-        keyExtractor={(item, index) => index.toString()}
-        renderItem={({ item }) => (
-          <View style={styles.reviewItem}>
-            <Text style={styles.author}>{item.author}</Text>
-            <RenderHtml
-              systemFonts={["Literata-Regular"]}
-              baseStyle={{ fontFamily: "Literata-Regular" }}
-              tagsStyles={{
-                p: {
-                  fontSize: 15,
-                  textAlign: "justify",
-                  marginBottom: 12,
-                  lineHeight: 25,
-                },
-                li: {
-                  marginBottom: 6,
-                },
-              }}
-              contentWidth={windowWidth}
-              source={{ html: item.html }}
-            />
-          </View>
-        )}
+        data={displayedReviews || []}
+        keyExtractor={reviewKeyExtractor}
+        initialNumToRender={4}
+        maxToRenderPerBatch={4}
+        windowSize={7}
+        onEndReached={loadNextPage}
+        onEndReachedThreshold={0.8}
+        ListFooterComponent={
+          isLoadingMore || paginationError ? (
+            <View style={styles.footer}>
+              {isLoadingMore ? (
+                <ActivityIndicator size="small" color="black" />
+              ) : (
+                <>
+                  <Text style={styles.footerText}>Couldn’t load more reviews.</Text>
+                  <Pressable onPress={loadNextPage} accessibilityRole="button">
+                    <Text style={styles.retryText}>Retry</Text>
+                  </Pressable>
+                </>
+              )}
+            </View>
+          ) : null
+        }
+        renderItem={renderReview}
       />
     </View>
   );
@@ -152,6 +300,18 @@ const styles = StyleSheet.create({
   author: {
     fontWeight: "bold",
     marginBottom: 4,
+  },
+  footer: {
+    alignItems: "center",
+    paddingVertical: 20,
+    gap: 8,
+  },
+  footerText: {
+    color: "hsl(0, 0%, 35%)",
+  },
+  retryText: {
+    fontWeight: "bold",
+    textDecorationLine: "underline",
   },
 });
 

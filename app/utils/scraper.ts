@@ -12,12 +12,17 @@ export interface Review {
 
 export interface ReviewsResponse {
   reviews: Review[];
-  startPage: number;
-  limit: number;
+  requestedPage: number;
+  currentPage: number;
+  nextPage: number | null;
+  hasMore: boolean;
 }
 
 async function getHTML(url: string): Promise<string> {
   const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Request failed (${response.status}) for ${url}`);
+  }
   const html = await response.text();
   return html;
 }
@@ -75,15 +80,25 @@ async function extractReviews(reviewLinks: ReviewLink[]): Promise<Review[]> {
   return extractedReviews;
 }
 
-export async function getReviews(
+/** Fetches a consecutive batch of Letterboxd listing pages. */
+export async function fetchReviewsBatch(
   filmSlug: string,
   startPage = 1,
   pageCount = 5
-): Promise<Review[]> {
+): Promise<ReviewsResponse> {
+  if (!Number.isInteger(startPage) || startPage < 1) {
+    throw new Error("startPage must be a positive integer");
+  }
+  if (!Number.isInteger(pageCount) || pageCount < 1) {
+    throw new Error("pageCount must be a positive integer");
+  }
+
   const url = `https://letterboxd.com/film/${filmSlug}/reviews/by/activity/`;
   const allReviewLinks: ReviewLink[] = [];
+  let currentPage = startPage - 1;
+  let hasMore = true;
 
-  for (let page = startPage; page <= pageCount; page++) {
+  for (let page = startPage; page < startPage + pageCount; page++) {
     let pageUrl = url;
     if (page > 1) {
       pageUrl = url.replace(/\/$/, `/page/${page}/`);
@@ -91,11 +106,31 @@ export async function getReviews(
 
     const html = await getHTML(pageUrl);
     const reviewLinks = extractReviewLinks(html);
+    currentPage = page;
+    if (reviewLinks.length === 0) {
+      hasMore = false;
+      break;
+    }
     allReviewLinks.push(...reviewLinks);
   }
 
   const reviews = await extractReviews(allReviewLinks);
-  return reviews;
+  return {
+    reviews,
+    requestedPage: startPage,
+    currentPage,
+    nextPage: hasMore ? currentPage + 1 : null,
+    hasMore,
+  };
+}
+
+/** @deprecated Use fetchReviewsBatch; retained so existing callers keep compiling. */
+export async function getReviews(
+  filmSlug: string,
+  startPage = 1,
+  pageCount = 5
+): Promise<ReviewsResponse> {
+  return fetchReviewsBatch(filmSlug, startPage, pageCount);
 }
 
 export async function resolveSlug(slugOrTmdbId: string): Promise<string> {
@@ -109,6 +144,10 @@ export async function resolveSlug(slugOrTmdbId: string): Promise<string> {
   const response = await fetch(url, {
     redirect: "follow",
   });
+
+  if (!response.ok) {
+    throw new Error(`Request failed (${response.status}) for ${url}`);
+  }
 
   const finalUrl = response.url;
   const match = finalUrl.match(/letterboxd\.com\/film\/([^/]+)/);
