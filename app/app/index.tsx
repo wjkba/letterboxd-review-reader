@@ -2,10 +2,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useNavigation } from "expo-router";
 import { useLayoutEffect } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { RecentReviews } from "../components/RecentReviews";
 
 export default function Index() {
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -31,7 +33,7 @@ export default function Index() {
         }}
       />
       <Pressable
-        style={styles.fab}
+        style={[styles.fab, { bottom: 24 + insets.bottom }]}
         onPress={() => router.push("/SearchScreen")}
       >
         <Ionicons name="search" size={28} color="white" />
@@ -47,7 +49,6 @@ const styles = StyleSheet.create({
   },
   fab: {
     position: "absolute",
-    bottom: 24,
     right: 24,
     width: 56,
     height: 56,
