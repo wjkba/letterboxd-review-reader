@@ -4,7 +4,8 @@
  */
 
 import { eq } from 'drizzle-orm'
-import type { SortMode } from '../scraper'
+import { isSortMode } from '#/shared/sort-mode'
+import type { SortMode } from '#/shared/sort-mode'
 import { db } from '../db'
 import { settings } from '../db/schema'
 
@@ -13,12 +14,6 @@ export const TARGET_REVIEWS_DEFAULT = 20
 
 export const REVIEW_SORT_MODE_KEY = 'reviewSortMode'
 export const REVIEW_SORT_MODE_DEFAULT: SortMode = 'popular'
-
-const SORT_MODES: readonly SortMode[] = ['popular', 'newest', 'mixed']
-
-function isSortMode(value: string): value is SortMode {
-  return (SORT_MODES as readonly string[]).includes(value)
-}
 
 function clamp(value: number): number {
   return Math.min(100, Math.max(1, Math.round(value)))

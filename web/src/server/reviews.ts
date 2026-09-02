@@ -1,16 +1,17 @@
 import { createServerFn } from '@tanstack/react-start'
+import { z } from 'zod'
 import { getReviewsImpl } from './reviews.impl'
 
+const reviewsInput = z.object({
+  slug: z
+    .string('slug required (string)')
+    .trim()
+    .toLowerCase()
+    .min(1, 'slug required (string)'),
+  // Clamp to 1..500 reviews, default 100.
+  limit: z.number().int().positive().max(500).default(100),
+})
+
 export const getReviewsFn = createServerFn({ method: 'GET' })
-  .validator((input: unknown) => {
-    if (typeof input !== 'object' || input === null) {
-      return { slug: '', limit: 100 } as { slug: string; limit: number }
-    }
-    const obj = input as { slug?: unknown; limit?: unknown }
-    const slug = typeof obj.slug === 'string' ? obj.slug.trim().toLowerCase() : ''
-    const limit =
-      typeof obj.limit === 'number' && obj.limit > 0 ? Math.min(obj.limit, 500) : 100
-    if (!slug) throw new Error('slug required (string)')
-    return { slug, limit }
-  })
+  .validator(reviewsInput)
   .handler(async ({ data }) => getReviewsImpl(data.slug, data.limit))

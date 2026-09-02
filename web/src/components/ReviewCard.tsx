@@ -1,4 +1,4 @@
-import type { Review } from '../db/schema'
+import type { Review } from '#/shared/api-types'
 
 function ratingStars(rating: number | null): string | null {
   if (rating === null || Number.isNaN(rating)) return null
