@@ -1,197 +1,90 @@
-Welcome to your new TanStack Start app!
+# Letterboxd Review Reader
 
-# Getting Started
+A web app that fetches and reads Letterboxd film reviews, enriched with film metadata from TMDB.
 
-To run this application:
+Built with [TanStack Start](https://tanstack.com/start) (SSR via Nitro's `node-server` preset), Vite, Tailwind CSS, and SQLite (Drizzle ORM + better-sqlite3).
+
+## Requirements
+
+- Node.js >= 20 (better-sqlite3 v13 is NAPI-based and runs on 20+, though it advertises `>= 22`)
+- Docker (optional, for containerized deployment)
+- A [TMDB read access token](https://www.themoviedb.org/settings/api) (optional — only needed for TMDB search)
+
+## Environment variables
+
+| Variable                 | Required | Default                 | Purpose                                  |
+| ------------------------ | -------- | ----------------------- | ---------------------------------------- |
+| `DATABASE_PATH`          | no       | `./data/letterboxd.db`  | SQLite database file location            |
+| `TMDB_READ_ACCESS_TOKEN` | no       | —                       | TMDB API token, enables TMDB film search |
+
+## Local development
 
 ```bash
 npm install
-npm run dev
+npm run db:migrate   # create/update the SQLite database (drizzle-kit)
+npm run dev          # dev server on http://localhost:3000
 ```
 
-# Building For Production
+To change the database schema, edit `src/db/schema.ts`, then:
 
-To build this application for production:
+```bash
+npm run db:generate  # generate a migration
+npm run db:migrate   # apply it
+```
+
+## Production build
+
+The build produces a self-contained Nitro Node server in `.output/`:
 
 ```bash
 npm run build
+node .output/server/index.mjs   # serves on $PORT (default 3000)
 ```
 
-## Styling
+The server respects `PORT` (or `NITRO_PORT`) and `HOST` (or `NITRO_HOST`). Native dependencies (better-sqlite3, got-scraping) are traced into `.output/server/node_modules`, so no separate `node_modules` install is needed at runtime — just ship the `.output` directory (plus `drizzle/` for auto-migration).
 
-This project uses [Tailwind CSS](https://tailwindcss.com/) for styling.
+Pending database migrations are applied automatically when the server starts (`src/db/index.ts` runs `migrate()` on boot), so there is no separate migration step for production deploys.
 
-### Removing Tailwind CSS
+## Docker deployment
 
-If you prefer not to use Tailwind CSS:
-
-1. Remove the demo pages in `src/routes/demo/`
-2. Replace the Tailwind import in `src/styles.css` with your own styles
-3. Remove `tailwindcss()` from the plugins array in `vite.config.ts`
-4. Remove `@tailwindcss/vite` and `tailwindcss` from `package.json`
-
-
-## Deploy with Nitro
-
-This project uses Nitro as a generic server adapter, so it can run on any Node-compatible host.
+From the repository root (the `docker-compose.yml` lives at the repo root, next to `web/`):
 
 ```bash
-npm run build
-node dist/server/index.mjs
+docker compose up -d --build
 ```
 
-The build output is a self-contained Node server. To deploy, push the `dist/` directory to your host (Render, Fly.io, your own VPS, etc.) and run the server command above.
+- App: http://localhost:3000
+- The SQLite database is stored in the named volume `letterboxd-data`, mounted at `/data` (`DATABASE_PATH=/data/letterboxd.db`), so it persists across restarts and rebuilds.
+- To set the TMDB token, create a `.env` file next to `docker-compose.yml` with `TMDB_READ_ACCESS_TOKEN=...` and uncomment the line in `docker-compose.yml`.
 
-For host-specific presets (Vercel, Netlify, Cloudflare, AWS Lambda, etc.) and tuning, see https://v3.nitro.build/deploy.
+The multi-stage `web/Dockerfile` builds with `node:20-slim` and the runtime image copies only the `.output` directory (plus the traced native modules).
 
+## Tailscale HTTPS exposure
 
+The simplest way to share the app over HTTPS within your tailnet, without exposing anything publicly:
 
-## Routing
-
-This project uses [TanStack Router](https://tanstack.com/router) with file-based routing. Routes are managed as files in `src/routes`.
-
-### Adding A Route
-
-To add a new route to your application just add a new file in the `./src/routes` directory.
-
-TanStack will automatically generate the content of the route file for you.
-
-Now that you have two routes you can use a `Link` component to navigate between them.
-
-### Adding Links
-
-To use SPA (Single Page Application) navigation you will need to import the `Link` component from `@tanstack/react-router`.
-
-```tsx
-import { Link } from "@tanstack/react-router";
+```bash
+sudo tailscale serve --bg 3000
+# or equivalently:
+sudo tailscale serve --bg http://localhost:3000
 ```
 
-Then anywhere in your JSX you can use it like so:
+The app is then available at `https://<machine-name>.<tailnet>.ts.net` from any device on your tailnet (TLS certificates are provisioned automatically).
 
-```tsx
-<Link to="/about">About</Link>
+Useful commands:
+
+```bash
+tailscale serve status   # see active serve config
+tailscale serve reset    # remove the serve config
 ```
 
-This will create a link that will navigate to the `/about` route.
+> `--bg` persists the config across reboots; without it, serve stops when the terminal session ends.
 
-More information on the `Link` component can be found in the [Link documentation](https://tanstack.com/router/v1/docs/framework/react/api/router/linkComponent).
+To bind the app to localhost only (no host port exposed at all), change the compose port mapping to `"127.0.0.1:3000:3000"`. Alternatively, run a Tailscale container as a sidecar — a commented-out example is included in `docker-compose.yml`.
 
-### Using A Layout
+## Learn more
 
-In the File Based Routing setup the layout is located in `src/routes/__root.tsx`. Anything you add to the root route will appear in all the routes. The route content will appear in the JSX where you render `{children}` in the `shellComponent`.
-
-Here is an example layout that includes a header:
-
-```tsx
-import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
-
-export const Route = createRootRoute({
-  head: () => ({
-    meta: [
-      { charSet: 'utf-8' },
-      { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-      { title: 'My App' },
-    ],
-  }),
-  shellComponent: ({ children }) => (
-    <html lang="en">
-      <head>
-        <HeadContent />
-      </head>
-      <body>
-        <header>
-          <nav>
-            <Link to="/">Home</Link>
-            <Link to="/about">About</Link>
-          </nav>
-        </header>
-        {children}
-        <Scripts />
-      </body>
-    </html>
-  ),
-})
-```
-
-More information on layouts can be found in the [Layouts documentation](https://tanstack.com/router/latest/docs/framework/react/guide/routing-concepts#layouts).
-
-## Server Functions
-
-TanStack Start provides server functions that allow you to write server-side code that seamlessly integrates with your client components.
-
-```tsx
-import { createServerFn } from '@tanstack/react-start'
-
-const getServerTime = createServerFn({
-  method: 'GET',
-}).handler(async () => {
-  return new Date().toISOString()
-})
-
-// Use in a component
-function MyComponent() {
-  const [time, setTime] = useState('')
-  
-  useEffect(() => {
-    getServerTime().then(setTime)
-  }, [])
-  
-  return <div>Server time: {time}</div>
-}
-```
-
-## API Routes
-
-You can create API routes by using the `server` property in your route definitions:
-
-```tsx
-import { createFileRoute } from '@tanstack/react-router'
-import { json } from '@tanstack/react-start'
-
-export const Route = createFileRoute('/api/hello')({
-  server: {
-    handlers: {
-      GET: () => json({ message: 'Hello, World!' }),
-    },
-  },
-})
-```
-
-## Data Fetching
-
-There are multiple ways to fetch data in your application. You can use TanStack Query to fetch data from a server. But you can also use the `loader` functionality built into TanStack Router to load the data for a route before it's rendered.
-
-For example:
-
-```tsx
-import { createFileRoute } from '@tanstack/react-router'
-
-export const Route = createFileRoute('/people')({
-  loader: async () => {
-    const response = await fetch('https://swapi.dev/api/people')
-    return response.json()
-  },
-  component: PeopleComponent,
-})
-
-function PeopleComponent() {
-  const data = Route.useLoaderData()
-  return (
-    <ul>
-      {data.results.map((person) => (
-        <li key={person.name}>{person.name}</li>
-      ))}
-    </ul>
-  )
-}
-```
-
-Loaders simplify your data fetching logic dramatically. Check out more information in the [Loader documentation](https://tanstack.com/router/latest/docs/framework/react/guide/data-loading#loader-parameters).
-
-
-
-# Learn More
-
-You can learn more about all of the offerings from TanStack in the [TanStack documentation](https://tanstack.com).
-
-For TanStack Start specific documentation, visit [TanStack Start](https://tanstack.com/start).
+- [TanStack Start docs](https://tanstack.com/start)
+- [TanStack Router](https://tanstack.com/router) (file-based routing in `src/routes`)
+- [Nitro deploy docs](https://v3.nitro.build/deploy)
+- [Drizzle ORM](https://orm.drizzle.team)
