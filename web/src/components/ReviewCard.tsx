@@ -11,14 +11,14 @@ export function ReviewCard({ review }: { review: Review }) {
   const header = (
     <>
       {review.authorUrl ? (
-        <a
-          href={review.authorUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="font-semibold text-stone-900 hover:underline"
-        >
-          {review.author}
-        </a>
+          <a
+            href={review.authorUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-semibold text-stone-900 underline hover:no-underline"
+          >
+            {review.author}
+          </a>
       ) : (
         <span className="font-semibold text-stone-900">{review.author}</span>
       )}
@@ -30,10 +30,10 @@ export function ReviewCard({ review }: { review: Review }) {
   )
 
   return (
-    <li className="border-b border-stone-200 py-8 first:pt-0 last:border-b-0 last:pb-0">
+    <li className="border-b border-stone-300 py-10 first:pt-0 last:border-b-0 last:pb-0">
       <div className="mb-3 flex flex-wrap items-center gap-3 text-sm">{header}</div>
       <div
-        className="text-justify font-serif text-base leading-7 text-stone-800 [&_a]:text-sky-700 [&_a]:underline [&_blockquote]:border-l-4 [&_blockquote]:border-stone-300 [&_blockquote]:pl-3 [&_blockquote]:italic [&_em]:italic [&_p]:mb-3 [&_p]:last:mb-0 [&_strong]:font-bold"
+        className="text-left font-serif text-base leading-[1.7] text-stone-900 [&_a]:font-medium [&_a]:text-stone-900 [&_a]:underline [&_blockquote]:border-l-4 [&_blockquote]:border-stone-400 [&_blockquote]:pl-4 [&_blockquote]:italic [&_em]:italic [&_p]:mb-4 [&_p]:last:mb-0 [&_strong]:font-bold"
         dangerouslySetInnerHTML={{ __html: review.html }}
       />
       {review.reviewUrl && (
@@ -41,7 +41,7 @@ export function ReviewCard({ review }: { review: Review }) {
           href={review.reviewUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-4 inline-block text-sm text-sky-700 hover:underline"
+          className="mt-4 inline-block text-sm text-sky-700 underline hover:no-underline"
         >
           View on Letterboxd →
         </a>

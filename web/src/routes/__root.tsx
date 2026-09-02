@@ -48,7 +48,9 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body>
-        <div className="mx-auto min-h-screen max-w-2xl px-6 py-10 text-stone-900">
+        {/* 65ch keeps review text at ~60-66 chars/line — the readable
+            measure for long-form e-ink reading (50-75 CPL range). */}
+        <div className="mx-auto min-h-screen max-w-[65ch] px-4 py-10 text-stone-900">
           {children}
         </div>
         <TanStackDevtools
