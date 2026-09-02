@@ -1,20 +1,52 @@
 import { useState, type FormEvent } from 'react'
 import { createFileRoute, useRouter } from '@tanstack/react-router'
-import { getTargetReviewsFn, saveTargetReviewsFn } from '../server/settings'
+import {
+  getSortModeFn,
+  getTargetReviewsFn,
+  saveSortModeFn,
+  saveTargetReviewsFn,
+} from '../server/settings'
+import type { SortMode } from '../scraper'
+
+const SORT_OPTIONS: Array<{
+  value: SortMode
+  label: string
+  description: string
+}> = [
+  {
+    value: 'popular',
+    label: 'Popular',
+    description: 'Most-liked long reviews',
+  },
+  {
+    value: 'newest',
+    label: 'Newest',
+    description: 'Most recent long reviews',
+  },
+  {
+    value: 'mixed',
+    label: 'Mixed',
+    description: 'Alternate pages from both lists for a balanced spread',
+  },
+]
 
 export const Route = createFileRoute('/settings')({
   loader: async () => {
-    const targetReviews = await getTargetReviewsFn()
-    return { targetReviews }
+    const [targetReviews, sortMode] = await Promise.all([
+      getTargetReviewsFn(),
+      getSortModeFn(),
+    ])
+    return { targetReviews, sortMode }
   },
   component: SettingsPage,
 })
 
 function SettingsPage() {
-  const { targetReviews } = Route.useLoaderData()
+  const { targetReviews, sortMode } = Route.useLoaderData()
   const router = useRouter()
 
   const [value, setValue] = useState(String(targetReviews))
+  const [mode, setMode] = useState<SortMode>(sortMode)
   const [pending, setPending] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -31,7 +63,9 @@ function SettingsPage() {
     setSaved(false)
     try {
       const clamped = await saveTargetReviewsFn({ data: { value: parsed } })
+      const savedMode = await saveSortModeFn({ data: { value: mode } })
       setValue(String(clamped))
+      setMode(savedMode)
       setSaved(true)
       await router.invalidate()
     } catch (err) {
@@ -50,9 +84,42 @@ function SettingsPage() {
         Configure how reviews are scraped from Letterboxd.
       </p>
       <form onSubmit={onSubmit} className="mt-8 max-w-md">
+        <fieldset className="border-0 p-0">
+          <legend className="block text-sm font-medium text-stone-700">
+            Review sort order
+          </legend>
+          <div className="mt-2 space-y-2">
+            {SORT_OPTIONS.map((option) => (
+              <label
+                key={option.value}
+                className="flex cursor-pointer items-start gap-2"
+              >
+                <input
+                  type="radio"
+                  name="sort-mode"
+                  value={option.value}
+                  checked={mode === option.value}
+                  onChange={() => {
+                    setMode(option.value)
+                    setSaved(false)
+                  }}
+                  className="mt-1 accent-green-600"
+                />
+                <span>
+                  <span className="block text-sm text-stone-900">
+                    {option.label}
+                  </span>
+                  <span className="block text-xs text-stone-500">
+                    {option.description}
+                  </span>
+                </span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
         <label
           htmlFor="target-reviews"
-          className="block text-sm font-medium text-stone-700"
+          className="mt-6 block text-sm font-medium text-stone-700"
         >
           Long-form reviews to fetch per film
         </label>
