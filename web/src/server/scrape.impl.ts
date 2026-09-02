@@ -1,6 +1,7 @@
 import { count, eq } from 'drizzle-orm'
 import { db } from '../db'
-import { films, reviews, scrapeJobs } from '../db/schema'
+import { films, reviews, scrapeJobs, scrapeLogs } from '../db/schema'
+import type { NewScrapeLog } from '../db/schema'
 import { scrapeFilmReviews } from '../scraper'
 import { enqueueScrape } from '../queue'
 
@@ -15,6 +16,19 @@ function titleFromSlug(slug: string): string {
     .filter(Boolean)
     .map((word) => word[0].toUpperCase() + word.slice(1))
     .join(' ')
+}
+
+/**
+ * Append a progress-log row for a film's scrape. Never throws: a logging
+ * failure must not take down the scrape itself.
+ */
+function log(filmId: number, message: string, level: NewScrapeLog['level'] = 'info') {
+  return db
+    .insert(scrapeLogs)
+    .values({ filmId, message, level })
+    .catch((err) => {
+      console.error(`[scrape] failed to write log for film ${filmId}:`, err)
+    })
 }
 
 /**
@@ -48,9 +62,13 @@ export async function triggerScrapeImpl(slug: string) {
   // 3. Enqueue background scrape work. The whole task body is wrapped in
   //    try/catch so the queue's dedupe Map cleanup always fires, and so a
   //    failure marks the film/job instead of surfacing as a rejected promise.
+  await log(film.id, 'Scrape started')
+
   void enqueueScrape(normalized, async () => {
     try {
+      await log(film.id, 'Fetching reviews from Letterboxd…')
       const result = await scrapeFilmReviews(normalized)
+      await log(film.id, `Fetched ${result.reviews.length} reviews`)
 
       let reviewsAdded = 0
       for (const review of result.reviews) {
@@ -100,8 +118,12 @@ export async function triggerScrapeImpl(slug: string) {
           error: null,
         })
         .where(eq(scrapeJobs.id, job.id))
+
+      await log(film.id, `Scrape complete: ${reviewsAdded} reviews added`)
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
+
+      await log(film.id, `Scrape failed: ${message}`, 'error')
 
       await db
         .update(films)

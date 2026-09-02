@@ -51,9 +51,23 @@ export const scrapeJobs = sqliteTable('scrape_jobs', {
   error: text('error'),
 })
 
+export const scrapeLogs = sqliteTable('scrape_logs', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  filmId: integer('film_id')
+    .notNull()
+    .references(() => films.id, { onDelete: 'cascade' }),
+  message: text('message').notNull(),
+  level: text('level').notNull().default('info'), // 'info' | 'warn' | 'error'
+  createdAt: integer('created_at')
+    .notNull()
+    .$defaultFn(() => Date.now()),
+})
+
 export type Film = typeof films.$inferSelect
 export type NewFilm = typeof films.$inferInsert
 export type Review = typeof reviews.$inferSelect
 export type NewReview = typeof reviews.$inferInsert
 export type ScrapeJob = typeof scrapeJobs.$inferSelect
 export type NewScrapeJob = typeof scrapeJobs.$inferInsert
+export type ScrapeLog = typeof scrapeLogs.$inferSelect
+export type NewScrapeLog = typeof scrapeLogs.$inferInsert
