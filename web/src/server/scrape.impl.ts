@@ -1,7 +1,7 @@
 import { count, eq } from 'drizzle-orm'
 import { db } from '../db'
 import { films, reviews, scrapeJobs } from '../db/schema'
-import { scrapeFilmReviews } from '../scraper'
+import { resolveSlug, scrapeFilmReviews } from '../scraper'
 import { enqueueScrape } from '../queue'
 
 /**
@@ -26,12 +26,47 @@ export async function triggerScrapeImpl(slug: string) {
   const normalized = slug.trim().toLowerCase()
   const tag = `[scrape:${normalized}]`
 
+  // 0. Resolve TMDB references ("tmdb/496243") to their real Letterboxd slug
+  //    ("parasite") via the letterboxd.com/tmdb/{id} redirect. Everything
+  //    below (upsert, scrape, title) uses the resolved slug.
+  let filmSlug = normalized
+  try {
+    filmSlug = await resolveSlug(normalized)
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    console.error(`${tag} Slug resolution failed: ${message}`)
+
+    // Surface as a scrape failure instead of crashing: record the film
+    // (under the unresolved slug) and the job as failed.
+    const [film] = await db
+      .insert(films)
+      .values({
+        slug: normalized,
+        title: titleFromSlug(normalized),
+        scrapeStatus: 'failed',
+        scrapeError: message,
+      })
+      .onConflictDoUpdate({
+        target: films.slug,
+        set: { scrapeStatus: 'failed', scrapeError: message },
+      })
+      .returning()
+
+    await db
+      .insert(scrapeJobs)
+      .values({ filmId: film.id, status: 'failed', startedAt: Date.now(), finishedAt: Date.now(), error: message })
+
+    return film
+  }
+
+  const resolvedTag = `[scrape:${filmSlug}]`
+
   // 1. Upsert film row; if it already exists, reset it to 'scraping'.
   const [film] = await db
     .insert(films)
     .values({
-      slug: normalized,
-      title: titleFromSlug(normalized),
+      slug: filmSlug,
+      title: titleFromSlug(filmSlug),
       scrapeStatus: 'scraping',
     })
     .onConflictDoUpdate({
@@ -46,17 +81,19 @@ export async function triggerScrapeImpl(slug: string) {
     .values({ filmId: film.id, status: 'running', startedAt: Date.now() })
     .returning()
 
-  console.log(`${tag} Scrape started`)
+  console.log(`${resolvedTag} Scrape started`)
 
   // 3. Enqueue background scrape work. The whole task body is wrapped in
   //    try/catch so the queue's dedupe Map cleanup always fires, and so a
   //    failure marks the film/job instead of surfacing as a rejected promise.
-  void enqueueScrape(normalized, async () => {
+  //    Dedupe on the resolved slug so "tmdb/496243" and "parasite" queue
+  //    against the same key.
+  void enqueueScrape(filmSlug, async () => {
     try {
-      console.log(`${tag} Fetching reviews from Letterboxd…`)
+      console.log(`${resolvedTag} Fetching reviews from Letterboxd…`)
 
       let insertedCount = 0
-      const result = await scrapeFilmReviews(normalized, {
+      const result = await scrapeFilmReviews(filmSlug, {
         // Insert each review as it is scraped so the UI's polled
         // reviewCount grows live during the scrape.
         onReview: async (review, index) => {
@@ -84,7 +121,7 @@ export async function triggerScrapeImpl(slug: string) {
             .where(eq(films.id, film.id))
 
           console.log(
-            `${tag} Fetched ${index} reviews (${review.author})`,
+            `${resolvedTag} Fetched ${index} reviews (${review.author})`,
           )
         },
       })
@@ -119,11 +156,11 @@ export async function triggerScrapeImpl(slug: string) {
         })
         .where(eq(scrapeJobs.id, job.id))
 
-      console.log(`${tag} Scrape complete: ${reviewsAdded} reviews added`)
+      console.log(`${resolvedTag} Scrape complete: ${reviewsAdded} reviews added`)
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
 
-      console.error(`${tag} Scrape failed: ${message}`)
+      console.error(`${resolvedTag} Scrape failed: ${message}`)
 
       await db
         .update(films)
