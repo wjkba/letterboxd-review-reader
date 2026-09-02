@@ -1,3 +1,5 @@
+import * as cheerio from 'cheerio'
+import { franc } from 'franc-min'
 import { BASE_URL, delay, getHTML, getHTMLWithRedirect } from './http'
 import { parsePage } from './parse'
 import type {
@@ -7,6 +9,41 @@ import type {
   ScrapeResult,
   SortMode,
 } from './types'
+
+/**
+ * Default blocklist. Notes on franc's codes/confusions:
+ * - `arb` is Modern Standard Arabic (the macrolanguage `ara` is included too).
+ * - Russian and Bulgarian are orthographically near-identical, so franc
+ *   sometimes tags Russian text as `bul`; both are excluded. Residual
+ *   misdetection (e.g. Russian → `bos`) is possible but rare on long reviews.
+ */
+const DEFAULT_EXCLUDED_LANGUAGES = ['rus', 'bul', 'spa', 'ara', 'arb'] as const
+
+/**
+ * Language detection below ~40 characters is unreliable; shorter reviews are
+ * kept rather than dropped on a bad guess.
+ */
+const MIN_DETECTABLE_LENGTH = 40
+
+/**
+ * Detect the language of a review page's body text and report whether it is
+ * on the excluded list. Falls back to the whole page's text if the review
+ * markup differs; `und` (undetermined) is never excluded.
+ */
+function isExcludedLanguage(
+  reviewHTML: string,
+  excludedLanguages: readonly string[]
+): boolean {
+  if (excludedLanguages.length === 0) return false
+
+  const $ = cheerio.load(reviewHTML)
+  const text =
+    $('.body-text').first().text().trim() || $.root().text().trim()
+  if (text.length < MIN_DETECTABLE_LENGTH) return false
+
+  const language = franc(text, { minLength: 10 })
+  return language !== 'und' && excludedLanguages.includes(language)
+}
 
 export async function resolveSlug(slugOrTmdbId: string): Promise<string> {
   if (!slugOrTmdbId.startsWith('tmdb/')) {
@@ -34,6 +71,8 @@ export async function scrapeFilmReviews(
   const targetReviews = options?.targetReviews ?? 20
   const maxPages = options?.maxPages ?? 25
   const sortMode: SortMode = options?.sortMode ?? 'popular'
+  const excludedLanguages: readonly string[] =
+    options?.excludedLanguages ?? DEFAULT_EXCLUDED_LANGUAGES
 
   // Base list URL per sort mode. `/page/N/` appends (trailing-slash replace)
   // work for both bases: "reviews/" → "reviews/page/2/".
@@ -65,6 +104,14 @@ export async function scrapeFilmReviews(
     seen.add(entry.reviewUrl)
 
     const reviewHTML = await getHTML(entry.reviewUrl)
+
+    // Language filter: drop excluded-language reviews before pushing or
+    // counting toward the target. The fetch already happened, so keep the
+    // politeness delay before the loop moves on to the next entry.
+    if (isExcludedLanguage(reviewHTML, excludedLanguages)) {
+      await delay(500)
+      return
+    }
 
     const review: ScrapedReview = {
       author: entry.author,
