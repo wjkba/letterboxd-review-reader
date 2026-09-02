@@ -1,5 +1,5 @@
 import { createMMKV } from "react-native-mmkv";
-import { Review } from "./api";
+import { Review } from "./scraper";
 const storage = createMMKV();
 
 export function saveFilmReviews(slug: string, reviews: Review[]) {
