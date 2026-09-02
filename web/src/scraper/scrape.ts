@@ -1,0 +1,165 @@
+import { BASE_URL, delay, getHTML, getHTMLWithRedirect } from './http'
+import { parsePage } from './parse'
+import type {
+  PendingReview,
+  ScrapedReview,
+  ScrapeOptions,
+  ScrapeResult,
+  SortMode,
+} from './types'
+
+export async function resolveSlug(slugOrTmdbId: string): Promise<string> {
+  if (!slugOrTmdbId.startsWith('tmdb/')) {
+    return slugOrTmdbId
+  }
+
+  const tmdbId = slugOrTmdbId.replace('tmdb/', '')
+  const url = `${BASE_URL}/tmdb/${tmdbId}`
+
+  const { finalUrl } = await getHTMLWithRedirect(url)
+  const match = finalUrl.match(/letterboxd\.com\/film\/([^/]+)/)
+
+  if (match && match[1]) {
+    return match[1]
+  }
+
+  throw new Error('Could not resolve slug from TMDB ID')
+}
+
+export async function scrapeFilmReviews(
+  slug: string,
+  options?: ScrapeOptions
+): Promise<ScrapeResult> {
+  const startPage = options?.startPage ?? 1
+  const targetReviews = options?.targetReviews ?? 20
+  const maxPages = options?.maxPages ?? 25
+  const sortMode: SortMode = options?.sortMode ?? 'popular'
+
+  // Base list URL per sort mode. `/page/N/` appends (trailing-slash replace)
+  // work for both bases: "reviews/" → "reviews/page/2/".
+  const popularUrl = `${BASE_URL}/film/${slug}/reviews/by/activity/`
+  const newestUrl = `${BASE_URL}/film/${slug}/reviews/`
+
+  const scrapedReviews: ScrapedReview[] = []
+  // Dedupe by review URL: in mixed mode the same review can appear on pages
+  // of both lists; also guards against repeats across pages of one list.
+  const seen = new Set<string>()
+  let pagesScraped = 0
+
+  function pageUrlFor(base: string, page: number): string {
+    return page > 1 ? base.replace(/\/$/, `/page/${page}/`) : base
+  }
+
+  /**
+   * Phase (b): process one pending entry — target check, dedupe check
+   * (duplicates never fetch full text or consume a fetch slot), fetch,
+   * push, callback, delay.
+   */
+  async function processEntry(entry: PendingReview): Promise<void> {
+    // Skip remaining reviews (and all further pages) once the target is
+    // reached — before fetching any full review text.
+    if (scrapedReviews.length >= targetReviews) return
+
+    // Duplicate: don't fetch full text, don't push, don't count toward target.
+    if (seen.has(entry.reviewUrl)) return
+    seen.add(entry.reviewUrl)
+
+    const reviewHTML = await getHTML(entry.reviewUrl)
+
+    const review: ScrapedReview = {
+      author: entry.author,
+      authorUrl: entry.authorUrl,
+      html: reviewHTML,
+      reviewUrl: entry.reviewUrl,
+      rating: entry.rating,
+      watchedDate: entry.watchedDate,
+      stream: entry.stream,
+    }
+    scrapedReviews.push(review)
+    await options?.onReview?.(review, scrapedReviews.length)
+    await delay(500)
+  }
+
+  /** Process pending entries in order (single-stream page). */
+  async function processEntries(entries: PendingReview[]): Promise<void> {
+    for (const entry of entries) {
+      await processEntry(entry)
+    }
+  }
+
+  if (sortMode === 'mixed') {
+    // Review-level interleaving: each round fetches one page per stream
+    // (popular page N, newest page N), parses both into pending batches,
+    // then processes them round-robin: popular[0], newest[0], popular[1],
+    // newest[1], .... When one batch runs dry, the other's remaining entries
+    // continue. A stream is exhausted once a page yields zero review
+    // elements; maxPages is the total budget across both streams.
+    const next: Record<'popular' | 'newest', number> = {
+      popular: startPage,
+      newest: startPage,
+    }
+    const done: Record<'popular' | 'newest', boolean> = {
+      popular: false,
+      newest: false,
+    }
+
+    while (
+      pagesScraped < maxPages &&
+      scrapedReviews.length < targetReviews &&
+      !(done.popular && done.newest)
+    ) {
+      // Fetch one page per stream, popular first.
+      const batches: PendingReview[][] = []
+      for (const stream of ['popular', 'newest'] as const) {
+        if (done[stream]) continue
+        if (pagesScraped >= maxPages) break
+        if (scrapedReviews.length >= targetReviews) break
+
+        const base = stream === 'popular' ? popularUrl : newestUrl
+        const html = await getHTML(pageUrlFor(base, next[stream]))
+        pagesScraped++
+        next[stream]++
+
+        const parsed = parsePage(html, stream)
+        if (!parsed.hasElements) done[stream] = true
+        else batches.push(parsed.entries)
+      }
+
+      // Round-robin across the two batches until both are drained
+      // (or the target is reached — the while condition guarantees exit even
+      // when entries remain in the batches).
+      while (
+        scrapedReviews.length < targetReviews &&
+        batches.some((batch) => batch.length > 0)
+      ) {
+        for (const batch of batches) {
+          if (scrapedReviews.length >= targetReviews) break
+          const entry = batch.shift()
+          if (entry) await processEntry(entry)
+        }
+      }
+    }
+  } else {
+    // Single stream: the mode's base list, pages in order.
+    const base = sortMode === 'newest' ? newestUrl : popularUrl
+    const stream: 'popular' | 'newest' =
+      sortMode === 'newest' ? 'newest' : 'popular'
+
+    for (let page = startPage; page <= maxPages; page++) {
+      // Stop before fetching anything else once the target is reached.
+      if (scrapedReviews.length >= targetReviews) break
+
+      const html = await getHTML(pageUrlFor(base, page))
+      pagesScraped++
+
+      await processEntries(parsePage(html, stream).entries)
+    }
+  }
+
+  return {
+    slug,
+    reviews: scrapedReviews,
+    pagesScraped,
+    sortMode,
+  }
+}
