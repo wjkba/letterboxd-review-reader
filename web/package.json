@@ -25,6 +25,7 @@
     "@tanstack/react-start": "latest",
     "cheerio": "^1.2.0",
     "drizzle-orm": "^0.45.2",
+    "franc-min": "^6.2.0",
     "got-scraping": "^4.2.1",
     "nitro": "3.0.260610-beta",
     "p-queue": "^9.3.3",
