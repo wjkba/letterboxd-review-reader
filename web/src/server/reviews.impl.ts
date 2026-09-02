@@ -1,4 +1,4 @@
-import { desc, eq } from 'drizzle-orm'
+import { asc, eq } from 'drizzle-orm'
 import { db } from '../db'
 import { films, reviews } from '../db/schema'
 
@@ -9,7 +9,7 @@ export async function getReviewsImpl(slug: string, limit = 100) {
     .select()
     .from(reviews)
     .where(eq(reviews.filmId, film.id))
-    .orderBy(desc(reviews.scrapedAt))
+    .orderBy(asc(reviews.id))
     .limit(limit)
     .all()
 }
