@@ -7,6 +7,7 @@ Built with [TanStack Start](https://tanstack.com/start) (SSR via Nitro's `node-s
 ## Requirements
 
 - Node.js >= 20 (better-sqlite3 v13 is NAPI-based and runs on 20+, though it advertises `>= 22`)
+- pnpm 11 (pinned via the `packageManager` field in `package.json`; corepack users can just run `corepack enable`)
 - Docker (optional, for containerized deployment)
 - A [TMDB read access token](https://www.themoviedb.org/settings/api) (optional — only needed for TMDB search)
 
@@ -20,16 +21,16 @@ Built with [TanStack Start](https://tanstack.com/start) (SSR via Nitro's `node-s
 ## Local development
 
 ```bash
-npm install
-npm run db:migrate   # create/update the SQLite database (drizzle-kit)
-npm run dev          # dev server on http://localhost:3000
+pnpm install
+pnpm run db:migrate   # create/update the SQLite database (drizzle-kit)
+pnpm run dev          # dev server on http://localhost:3000
 ```
 
 To change the database schema, edit `src/db/schema.ts`, then:
 
 ```bash
-npm run db:generate  # generate a migration
-npm run db:migrate   # apply it
+pnpm run db:generate  # generate a migration
+pnpm run db:migrate   # apply it
 ```
 
 ## Production build
@@ -37,7 +38,7 @@ npm run db:migrate   # apply it
 The build produces a self-contained Nitro Node server in `.output/`:
 
 ```bash
-npm run build
+pnpm run build
 node .output/server/index.mjs   # serves on $PORT (default 3000)
 ```
 

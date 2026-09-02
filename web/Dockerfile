@@ -4,23 +4,28 @@
 # Stage 1: build the Nitro (node-server preset) output
 #
 # Node 24 is required here (not 20): @tanstack/react-start 1.168 declares
-# engines node >= 22.12, better-sqlite3 13 declares >= 22, and
-# package-lock.json was generated with npm 11 (which node:24 bundles).
+# engines node >= 22.12, better-sqlite3 13 declares >= 22.
 #
 # The full (non-slim) image is used because better-sqlite3's binding.gyp
-# prebuild check runs node-gyp during `npm ci`, which needs python3/make
-# even when it ends up being a no-op (the linux-x64 glibc prebuild ships in
-# the npm tarball and is used at runtime).
+# prebuild check may run node-gyp during dependency install, which needs
+# python3/make even when it ends up being a no-op (the linux-x64 glibc
+# prebuild ships in the npm tarball and is used at runtime).
 # ---------------------------------------------------------------------------
 FROM node:24 AS build
 WORKDIR /app
 
+# pnpm version is pinned via the "packageManager" field in package.json.
+# COREPACK_ENABLE_DOWNLOAD_PROMPT=0 skips corepack's interactive download
+# confirmation during image build.
+RUN corepack enable
+ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+
 # Install dependencies first for better layer caching.
-COPY package.json package-lock.json ./
-RUN npm ci
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN pnpm install --frozen-lockfile
 
 COPY . .
-RUN npm run build
+RUN pnpm run build
 
 # ---------------------------------------------------------------------------
 # Stage 2: minimal runtime
