@@ -93,6 +93,13 @@ const config = defineConfig({
     devtools(),
     nitro({
       rollupConfig: { external: [/^@sentry\//] },
+      // got-scraping/header-generator load data files via CJS __dirname
+      // (e.g. `${__dirname}/data_files/...`), which crashes when bundled
+      // into ESM ("__dirname is not defined in ES module scope" during SSR).
+      // traceDeps keeps them external (real CJS from node_modules) and
+      // traces them (the trailing `*` = full package, incl. data files)
+      // into .output/server/node_modules.
+      traceDeps: ['got-scraping*', 'header-generator*'],
     }),
     tailwindcss(),
     tanstackStart(),
