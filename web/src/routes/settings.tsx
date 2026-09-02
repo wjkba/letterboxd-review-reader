@@ -6,7 +6,7 @@ import {
   saveSortModeFn,
   saveTargetReviewsFn,
 } from '../server/settings'
-import type { SortMode } from '../scraper'
+import type { SortMode } from '#/shared/sort-mode'
 
 const SORT_OPTIONS: Array<{
   value: SortMode

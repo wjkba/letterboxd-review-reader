@@ -1,17 +1,11 @@
-import { useEffect } from 'react'
-import { Link, createFileRoute, useRouter } from '@tanstack/react-router'
+import { Link, createFileRoute } from '@tanstack/react-router'
 import { getFilmFn } from '../../server/films'
 import { getReviewsFn } from '../../server/reviews'
-import type { Film, Review } from '../../db/schema'
+import type { Film, Review } from '#/shared/api-types'
+import { StatusBadge } from '#/shared/status-badge'
+import { relativeTime } from '#/shared/relative-time'
+import { usePollingWhile } from '#/hooks/use-polling'
 import { ReviewCard } from '../../components/ReviewCard'
-import { relativeTime } from '../../components/FilmCard'
-
-const statusClasses: Record<string, string> = {
-  pending: 'bg-stone-100 text-stone-600',
-  scraping: 'bg-sky-100 text-sky-700',
-  completed: 'bg-green-100 text-green-700',
-  failed: 'bg-red-100 text-red-600',
-}
 
 export const Route = createFileRoute('/films/$slug')({
   loader: async ({ params }) => {
@@ -55,18 +49,11 @@ function FilmPage() {
   const data = Route.useLoaderData() as LoaderData
   const params = Route.useParams()
   const { notFound, message } = data
-  const router = useRouter()
   const scraping = data.film?.scrapeStatus === 'scraping'
 
   // While scraping, re-run the loader every 2s — this refreshes the film
   // status and the reviews (including the live reviewCount) in one pass.
-  useEffect(() => {
-    if (!scraping) return
-    const interval = setInterval(() => {
-      void router.invalidate()
-    }, 2000)
-    return () => clearInterval(interval)
-  }, [router, scraping])
+  usePollingWhile(scraping, 2000)
 
   if (notFound || !data.film) {
     return <NotFoundState message={message ?? `No film with slug "${params.slug}"`} />
@@ -81,14 +68,7 @@ function FilmPage() {
       </Link>
       <h1 className="mt-4 text-3xl font-bold tracking-tight">{film.title}</h1>
       <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-stone-600">
-        <span
-          className={`flex items-center gap-1.5 rounded px-2 py-0.5 text-xs font-medium ${statusClasses[film.scrapeStatus]}`}
-        >
-          {film.scrapeStatus === 'scraping' && (
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-sky-500" />
-          )}
-          {film.scrapeStatus}
-        </span>
+        <StatusBadge status={film.scrapeStatus} />
         <span>
           {film.reviewCount} review{film.reviewCount === 1 ? '' : 's'}
         </span>

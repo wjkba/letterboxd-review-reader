@@ -1,8 +1,8 @@
-import { useEffect } from 'react'
-import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { listFilmsFn } from '../server/films'
 import { AddFilmForm } from '../components/AddFilmForm'
 import { FilmCard } from '../components/FilmCard'
+import { usePollingWhile } from '#/hooks/use-polling'
 
 export const Route = createFileRoute('/')({
   loader: async () => {
@@ -14,18 +14,11 @@ export const Route = createFileRoute('/')({
 
 function IndexPage() {
   const { films } = Route.useLoaderData()
-  const router = useRouter()
   const isScraping = films.some((film) => film.scrapeStatus === 'scraping')
 
   // Live progress: re-run the loader while any film is being scraped so
   // status badges and review counts update without a manual refresh.
-  useEffect(() => {
-    if (!isScraping) return
-    const interval = setInterval(() => {
-      void router.invalidate()
-    }, 3000)
-    return () => clearInterval(interval)
-  }, [router, isScraping])
+  usePollingWhile(isScraping, 3000)
 
   return (
     <main>
