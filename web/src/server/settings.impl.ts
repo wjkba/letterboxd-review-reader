@@ -4,11 +4,21 @@
  */
 
 import { eq } from 'drizzle-orm'
+import type { SortMode } from '../scraper'
 import { db } from '../db'
 import { settings } from '../db/schema'
 
 export const TARGET_REVIEWS_KEY = 'targetLongReviews'
 export const TARGET_REVIEWS_DEFAULT = 20
+
+export const REVIEW_SORT_MODE_KEY = 'reviewSortMode'
+export const REVIEW_SORT_MODE_DEFAULT: SortMode = 'popular'
+
+const SORT_MODES: readonly SortMode[] = ['popular', 'newest', 'mixed']
+
+function isSortMode(value: string): value is SortMode {
+  return (SORT_MODES as readonly string[]).includes(value)
+}
 
 function clamp(value: number): number {
   return Math.min(100, Math.max(1, Math.round(value)))
@@ -44,4 +54,36 @@ export async function setTargetReviewsImpl(value: number): Promise<number> {
     })
 
   return clamped
+}
+
+/**
+ * Read which Letterboxd reviews list the scraper should pull from.
+ * Falls back to "popular" when the row is missing or holds an unknown value.
+ */
+export async function getSortModeImpl(): Promise<SortMode> {
+  const [row] = await db
+    .select()
+    .from(settings)
+    .where(eq(settings.key, REVIEW_SORT_MODE_KEY))
+    .limit(1)
+
+  if (!row || !isSortMode(row.value)) return REVIEW_SORT_MODE_DEFAULT
+  return row.value
+}
+
+/** Validate and upsert the reviews list sort mode. */
+export async function setSortModeImpl(mode: SortMode): Promise<SortMode> {
+  if (!isSortMode(mode)) {
+    throw new Error(`Invalid sort mode: ${String(mode)}`)
+  }
+
+  await db
+    .insert(settings)
+    .values({ key: REVIEW_SORT_MODE_KEY, value: mode })
+    .onConflictDoUpdate({
+      target: settings.key,
+      set: { value: mode },
+    })
+
+  return mode
 }
