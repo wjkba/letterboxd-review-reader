@@ -1,7 +1,6 @@
 import { count, eq } from 'drizzle-orm'
 import { db } from '../db'
-import { films, reviews, scrapeJobs, scrapeLogs } from '../db/schema'
-import type { NewScrapeLog } from '../db/schema'
+import { films, reviews, scrapeJobs } from '../db/schema'
 import { scrapeFilmReviews } from '../scraper'
 import { enqueueScrape } from '../queue'
 
@@ -19,25 +18,13 @@ function titleFromSlug(slug: string): string {
 }
 
 /**
- * Append a progress-log row for a film's scrape. Never throws: a logging
- * failure must not take down the scrape itself.
- */
-function log(filmId: number, message: string, level: NewScrapeLog['level'] = 'info') {
-  return db
-    .insert(scrapeLogs)
-    .values({ filmId, message, level })
-    .catch((err) => {
-      console.error(`[scrape] failed to write log for film ${filmId}:`, err)
-    })
-}
-
-/**
  * Upsert the film row (status='scraping'), record a scrape_jobs row, then
  * enqueue the actual scrape as background work. Returns the film record
- * immediately — the caller should poll film status / reviews for progress.
+ * immediately — the caller should poll film status / reviewCount for progress.
  */
 export async function triggerScrapeImpl(slug: string) {
   const normalized = slug.trim().toLowerCase()
+  const tag = `[scrape:${normalized}]`
 
   // 1. Upsert film row; if it already exists, reset it to 'scraping'.
   const [film] = await db
@@ -59,37 +46,50 @@ export async function triggerScrapeImpl(slug: string) {
     .values({ filmId: film.id, status: 'running', startedAt: Date.now() })
     .returning()
 
+  console.log(`${tag} Scrape started`)
+
   // 3. Enqueue background scrape work. The whole task body is wrapped in
   //    try/catch so the queue's dedupe Map cleanup always fires, and so a
   //    failure marks the film/job instead of surfacing as a rejected promise.
-  await log(film.id, 'Scrape started')
-
   void enqueueScrape(normalized, async () => {
     try {
-      await log(film.id, 'Fetching reviews from Letterboxd…')
-      const result = await scrapeFilmReviews(normalized)
-      await log(film.id, `Fetched ${result.reviews.length} reviews`)
+      console.log(`${tag} Fetching reviews from Letterboxd…`)
 
-      let reviewsAdded = 0
-      for (const review of result.reviews) {
-        const inserted = await db
-          .insert(reviews)
-          .values({
-            filmId: film.id,
-            author: review.author,
-            authorUrl: review.authorUrl,
-            rating: review.rating,
-            watchedDate: review.watchedDate,
-            reviewUrl: review.reviewUrl,
-            html: review.html,
-            scrapedAt: Date.now(),
-          })
-          .onConflictDoNothing({
-            target: [reviews.filmId, reviews.reviewUrl],
-          })
-          .returning()
-        reviewsAdded += inserted.length
-      }
+      let insertedCount = 0
+      const result = await scrapeFilmReviews(normalized, {
+        // Insert each review as it is scraped so the UI's polled
+        // reviewCount grows live during the scrape.
+        onReview: async (review, index) => {
+          const inserted = await db
+            .insert(reviews)
+            .values({
+              filmId: film.id,
+              author: review.author,
+              authorUrl: review.authorUrl,
+              rating: review.rating,
+              watchedDate: review.watchedDate,
+              reviewUrl: review.reviewUrl,
+              html: review.html,
+              scrapedAt: Date.now(),
+            })
+            .onConflictDoNothing({
+              target: [reviews.filmId, reviews.reviewUrl],
+            })
+            .returning()
+          insertedCount += inserted.length
+
+          await db
+            .update(films)
+            .set({ reviewCount: insertedCount })
+            .where(eq(films.id, film.id))
+
+          console.log(
+            `${tag} Fetched ${index} reviews (${review.author})`,
+          )
+        },
+      })
+
+      const reviewsAdded = insertedCount
 
       // Query the actual count so film.reviewCount is accurate even when
       // some reviews conflicted with existing rows.
@@ -119,11 +119,11 @@ export async function triggerScrapeImpl(slug: string) {
         })
         .where(eq(scrapeJobs.id, job.id))
 
-      await log(film.id, `Scrape complete: ${reviewsAdded} reviews added`)
+      console.log(`${tag} Scrape complete: ${reviewsAdded} reviews added`)
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
 
-      await log(film.id, `Scrape failed: ${message}`, 'error')
+      console.error(`${tag} Scrape failed: ${message}`)
 
       await db
         .update(films)

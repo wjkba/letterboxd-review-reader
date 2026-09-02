@@ -2,8 +2,7 @@ import { useEffect } from 'react'
 import { Link, createFileRoute, useRouter } from '@tanstack/react-router'
 import { getFilmFn } from '../../server/films'
 import { getReviewsFn } from '../../server/reviews'
-import { getScrapeLogsFn } from '../../server/scrape-logs'
-import type { Film, Review, ScrapeLog } from '../../db/schema'
+import type { Film, Review } from '../../db/schema'
 import { ReviewCard } from '../../components/ReviewCard'
 import { relativeTime } from '../../components/FilmCard'
 
@@ -14,22 +13,14 @@ const statusClasses: Record<string, string> = {
   failed: 'bg-red-100 text-red-600',
 }
 
-const logLevelClasses: Record<ScrapeLog['level'], string> = {
-  info: 'text-stone-600',
-  warn: 'text-amber-700',
-  error: 'text-red-600',
-}
-
 export const Route = createFileRoute('/films/$slug')({
   loader: async ({ params }) => {
     let film: Film
     let reviews: Review[]
-    let logs: ScrapeLog[]
     try {
-      ;[film, reviews, logs] = await Promise.all([
+      ;[film, reviews] = await Promise.all([
         getFilmFn({ data: { slug: params.slug } }),
         getReviewsFn({ data: { slug: params.slug } }),
-        getScrapeLogsFn({ data: { slug: params.slug } }),
       ])
     } catch (err) {
       // Film not found (or a lookup failed) — render a friendly state
@@ -37,12 +28,11 @@ export const Route = createFileRoute('/films/$slug')({
       return {
         film: null,
         reviews: [],
-        logs: [],
         notFound: true,
         message: err instanceof Error ? err.message : 'Something went wrong.',
       }
     }
-    return { film, reviews, logs, notFound: false, message: null }
+    return { film, reviews, notFound: false, message: null }
   },
   component: FilmPage,
 })
@@ -61,45 +51,6 @@ function NotFoundState({ message }: { message: string }) {
   )
 }
 
-function formatLogTime(unixMs: number): string {
-  const d = new Date(unixMs)
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
-}
-
-function ScrapeLogFeed({ logs, live }: { logs: ScrapeLog[]; live: boolean }) {
-  if (logs.length === 0) {
-    return live ? (
-      <p className="mt-6 text-sm text-stone-500">Waiting for scraper logs…</p>
-    ) : null
-  }
-  return (
-    <section className="mt-6">
-      <h2 className="mb-2 flex items-center gap-2 text-sm font-bold text-stone-700">
-        Scrape log
-        {live && (
-          <span className="flex items-center gap-1.5 text-xs font-medium text-sky-600">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-sky-500" />
-            live
-          </span>
-        )}
-      </h2>
-      <ol className="max-h-64 space-y-1 overflow-y-auto rounded-md border border-stone-200 bg-white p-3 font-mono text-xs leading-relaxed">
-        {logs.map((log) => (
-          <li key={log.id} className="flex gap-2">
-            <span className="shrink-0 text-stone-400">
-              {formatLogTime(log.createdAt)}
-            </span>
-            <span className={logLevelClasses[log.level] ?? logLevelClasses.info}>
-              {log.message}
-            </span>
-          </li>
-        ))}
-      </ol>
-    </section>
-  )
-}
-
 function FilmPage() {
   const data = Route.useLoaderData() as LoaderData
   const params = Route.useParams()
@@ -107,13 +58,13 @@ function FilmPage() {
   const router = useRouter()
   const scraping = data.film?.scrapeStatus === 'scraping'
 
-  // While scraping, re-run the loader every 4s — this refreshes the film
-  // status, the reviews, AND the scrape log feed in one pass.
+  // While scraping, re-run the loader every 2s — this refreshes the film
+  // status and the reviews (including the live reviewCount) in one pass.
   useEffect(() => {
     if (!scraping) return
     const interval = setInterval(() => {
       void router.invalidate()
-    }, 4000)
+    }, 2000)
     return () => clearInterval(interval)
   }, [router, scraping])
 
@@ -121,7 +72,7 @@ function FilmPage() {
     return <NotFoundState message={message ?? `No film with slug "${params.slug}"`} />
   }
 
-  const { film, reviews, logs } = data
+  const { film, reviews } = data
 
   return (
     <main>
@@ -146,8 +97,6 @@ function FilmPage() {
       {film.scrapeError && (
         <p className="mt-2 text-sm text-red-600">{film.scrapeError}</p>
       )}
-
-      <ScrapeLogFeed logs={logs} live={scraping} />
 
       <h2 className="mb-4 mt-10 text-sm font-bold text-stone-700">Reviews</h2>
       {reviews.length === 0 && film.scrapeStatus === 'scraping' ? (
