@@ -20,8 +20,8 @@ export interface ReviewsResponse {
 
 export interface ScrapeOptions {
   startPage?: number;
-  pageCount?: number;
-  maxReviews?: number;
+  targetReviews?: number;
+  maxPages?: number;
   /** Called after each review is scraped (before the inter-request delay). */
   onReview?: (review: ScrapedReview, index: number) => Promise<void> | void;
 }
@@ -208,14 +208,17 @@ export async function scrapeFilmReviews(
   options?: ScrapeOptions
 ): Promise<ScrapeResult> {
   const startPage = options?.startPage ?? 1;
-  const pageCount = options?.pageCount ?? 5;
-  const maxReviews = options?.maxReviews ?? 50;
+  const targetReviews = options?.targetReviews ?? 20;
+  const maxPages = options?.maxPages ?? 25;
 
   const reviewsUrl = `${BASE_URL}/film/${slug}/reviews/by/activity/`;
   const scrapedReviews: ScrapedReview[] = [];
   let pagesScraped = 0;
 
-  for (let page = startPage; page <= pageCount; page++) {
+  pageLoop: for (let page = startPage; page <= maxPages; page++) {
+    // Stop before fetching anything else once the target is reached.
+    if (scrapedReviews.length >= targetReviews) break;
+
     let pageUrl = reviewsUrl;
     if (page > 1) {
       pageUrl = reviewsUrl.replace(/\/$/, `/page/${page}/`);
@@ -228,7 +231,9 @@ export async function scrapeFilmReviews(
 
     const reviewElements = $(".production-viewing").toArray();
     for (const reviewElement of reviewElements) {
-      if (scrapedReviews.length >= maxReviews) break;
+      // Skip remaining reviews on this page (and all further pages) once
+      // the target is reached — before fetching any full review text.
+      if (scrapedReviews.length >= targetReviews) break pageLoop;
       const el = $(reviewElement);
 
       const avatarLink = el.find(".avatar").first();
@@ -263,8 +268,6 @@ export async function scrapeFilmReviews(
         await delay(500);
       }
     }
-
-    if (scrapedReviews.length >= maxReviews) break;
   }
 
   return {
