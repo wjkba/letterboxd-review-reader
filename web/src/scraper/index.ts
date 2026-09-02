@@ -230,6 +230,7 @@ export async function scrapeFilmReviews(
       const rating = parseRating($, el);
       const watchedDate = parseWatchedDate($, el);
 
+      // Only collapsed (long-form) reviews are fetched; short inline reviews are skipped.
       if (fullTextUrl) {
         const reviewUrl = `${BASE_URL}${fullTextUrl}`;
         const reviewHTML = await getHTML(reviewUrl);
@@ -243,16 +244,6 @@ export async function scrapeFilmReviews(
           watchedDate,
         });
         await delay(500);
-      } else {
-        // Short reviews with no collapsed text: keep inline HTML
-        scrapedReviews.push({
-          author,
-          authorUrl,
-          html: $.html(bodyText),
-          reviewUrl: pageUrl,
-          rating,
-          watchedDate,
-        });
       }
     }
 
