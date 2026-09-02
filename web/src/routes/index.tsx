@@ -1,4 +1,5 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { useEffect } from 'react'
+import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { listFilmsFn } from '../server/films'
 import { AddFilmForm } from '../components/AddFilmForm'
 import { FilmCard } from '../components/FilmCard'
@@ -13,18 +14,43 @@ export const Route = createFileRoute('/')({
 
 function IndexPage() {
   const { films } = Route.useLoaderData()
+  const router = useRouter()
+  const isScraping = films.some((film) => film.scrapeStatus === 'scraping')
+
+  // Live progress: re-run the loader while any film is being scraped so
+  // status badges and review counts update without a manual refresh.
+  useEffect(() => {
+    if (!isScraping) return
+    const interval = setInterval(() => {
+      void router.invalidate()
+    }, 3000)
+    return () => clearInterval(interval)
+  }, [router, isScraping])
 
   return (
     <main>
-      <h1 className="text-3xl font-bold">Letterboxd Reviews</h1>
+      <h1 className="text-3xl font-bold tracking-tight text-stone-900">
+        Letterboxd Reviews
+      </h1>
+      <p className="mt-1 text-sm text-stone-500">
+        Add a film to read its Letterboxd reviews.
+      </p>
       <div className="mt-6">
         <AddFilmForm />
       </div>
-      <h2 className="mb-4 text-xl font-semibold">Films</h2>
+      <div className="mb-4 mt-10 flex items-center gap-2">
+        <h2 className="text-sm font-bold text-stone-700">Recent</h2>
+        {isScraping && (
+          <span className="flex items-center gap-1.5 text-xs font-medium text-sky-600">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-sky-500" />
+            scraping…
+          </span>
+        )}
+      </div>
       {films.length === 0 ? (
-        <p className="text-gray-500 dark:text-gray-400">No films yet. Add one above.</p>
+        <p className="text-sm text-stone-500">No films yet. Add one above.</p>
       ) : (
-        <ul className="space-y-3">
+        <ul className="space-y-2">
           {films.map((film) => (
             <FilmCard key={film.id} film={film} />
           ))}
