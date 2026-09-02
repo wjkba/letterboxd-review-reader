@@ -155,23 +155,36 @@ export async function resolveSlug(slugOrTmdbId: string): Promise<string> {
   throw new Error("Could not resolve slug from TMDB ID");
 }
 
-function parseRating($: CheerioAPI, el: cheerio.Cheerio<any>): number | null {
+function parseRating(_: CheerioAPI, el: cheerio.Cheerio<any>): number | null {
   const ratingEl = el.find(".rating").first();
-  if (ratingEl.length === 0) return null;
 
-  // Letterboxd marks ratings with classes like "rated-8" (0.5-star scale → 1..10)
-  const classes = (ratingEl.attr("class") || "").split(/\s+/);
-  for (const cls of classes) {
-    const match = cls.match(/^rated-(\d+)$/);
-    if (match) {
-      const n = Number.parseInt(match[1], 10);
-      if (n >= 1 && n <= 10) return n;
+  // Legacy markup: Letterboxd marked ratings with classes like "rated-8"
+  // (0.5-star scale → 1..10)
+  if (ratingEl.length > 0) {
+    const classes = (ratingEl.attr("class") || "").split(/\s+/);
+    for (const cls of classes) {
+      const match = cls.match(/^rated-(\d+)$/);
+      if (match) {
+        const n = Number.parseInt(match[1], 10);
+        if (n >= 1 && n <= 10) return n;
+      }
     }
   }
-  return null;
+
+  // Current markup: ratings render as star glyphs, e.g.
+  // <span class="inline-symbol inline-rating">★★★★½</span>
+  const glyphEl = el.find("[class*='inline-rating']").first();
+  if (glyphEl.length === 0) return null;
+  const text = glyphEl.text();
+  const filled = (text.match(/★/g) || []).length;
+  if (filled === 0) return null;
+  const half = text.includes("½");
+  // ★ count (plus 0.5 for ½) → 1..10 scale
+  const n = Math.round((Math.min(5, filled) + (half ? 0.5 : 0)) * 2);
+  return n >= 1 && n <= 10 ? n : null;
 }
 
-function parseWatchedDate($: CheerioAPI, el: cheerio.Cheerio<any>): string | null {
+function parseWatchedDate(_: CheerioAPI, el: cheerio.Cheerio<any>): string | null {
   const dateEl = el.find(".date").first();
   if (dateEl.length > 0) {
     // Prefer an explicit absolute date if present, otherwise use the visible text
