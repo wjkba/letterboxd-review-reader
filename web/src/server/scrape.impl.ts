@@ -3,7 +3,7 @@ import { db } from '../db'
 import { films, reviews, scrapeJobs } from '../db/schema'
 import { resolveSlug, scrapeFilmReviews } from '../scraper'
 import { enqueueScrape } from '../queue'
-import { getTargetReviewsImpl } from './settings.impl'
+import { getSortModeImpl, getTargetReviewsImpl } from './settings.impl'
 
 /**
  * Derive a display title from a Letterboxd slug ("the-grand-budapest-hotel"
@@ -94,11 +94,15 @@ export async function triggerScrapeImpl(slug: string) {
       console.log(`${resolvedTag} Fetching reviews from Letterboxd…`)
 
       const targetReviews = await getTargetReviewsImpl()
-      console.log(`${resolvedTag} Target: ${targetReviews} long-form reviews`)
+      const sortMode = await getSortModeImpl()
+      console.log(
+        `${resolvedTag} Target: ${targetReviews} long-form reviews (${sortMode})`,
+      )
 
       let insertedCount = 0
       const result = await scrapeFilmReviews(filmSlug, {
         targetReviews,
+        sortMode,
         // Insert each review as it is scraped so the UI's polled
         // reviewCount grows live during the scrape.
         onReview: async (review, index) => {
