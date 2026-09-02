@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "b8f9c17a-8ac9-4ecb-952f-9a7acdf555da",
+  "id": "3c935bdc-a7a7-4e92-8c11-3f90debe353c",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "films": {

@@ -22,6 +22,8 @@ export interface ScrapeOptions {
   startPage?: number;
   pageCount?: number;
   maxReviews?: number;
+  /** Called after each review is scraped (before the inter-request delay). */
+  onReview?: (review: ScrapedReview, index: number) => Promise<void> | void;
 }
 
 export interface ScrapedReview {
@@ -235,14 +237,16 @@ export async function scrapeFilmReviews(
         const reviewUrl = `${BASE_URL}${fullTextUrl}`;
         const reviewHTML = await getHTML(reviewUrl);
 
-        scrapedReviews.push({
+        const review: ScrapedReview = {
           author,
           authorUrl,
           html: reviewHTML,
           reviewUrl,
           rating,
           watchedDate,
-        });
+        };
+        scrapedReviews.push(review);
+        await options?.onReview?.(review, scrapedReviews.length);
         await delay(500);
       }
     }
