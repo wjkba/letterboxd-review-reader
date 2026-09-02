@@ -9,13 +9,12 @@ export interface ScrapeOptions {
   /** Which Letterboxd reviews list to pull from (default "popular"). */
   sortMode?: SortMode
   /**
-   * ISO 639-3 language codes to exclude (default: rus, bul, spa, ara, arb).
-   * Detected from the fetched full review text; `und` (undetermined,
-   * e.g. very short or emoji-only reviews) is never excluded.
-   * Note: `bul` is included by default because franc cannot reliably
-   * distinguish Bulgarian from Russian.
+   * ISO 639-3 language codes to keep (default: eng, pol). Reviews detected
+   * as any other language are excluded. `und` (undetermined, e.g. very short
+   * or emoji-only reviews) is always kept. Pass an empty array to disable
+   * language filtering.
    */
-  excludedLanguages?: string[]
+  allowedLanguages?: string[]
   /** Called after each review is scraped (before the inter-request delay). */
   onReview?: (review: ScrapedReview, index: number) => Promise<void> | void
 }
