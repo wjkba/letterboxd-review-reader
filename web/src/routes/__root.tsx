@@ -17,11 +17,24 @@ export const Route = createRootRoute({
       {
         title: 'Letterboxd Reviews',
       },
+      {
+        name: 'theme-color',
+        content: '#ffffff',
+      },
     ],
     links: [
       {
         rel: 'stylesheet',
         href: appCss,
+      },
+      {
+        rel: 'manifest',
+        href: '/manifest.webmanifest',
+      },
+      {
+        rel: 'icon',
+        href: '/icons/icon.svg',
+        type: 'image/svg+xml',
       },
     ],
   }),
