@@ -26,9 +26,6 @@ export function ReviewCard({ review }: { review: Review }) {
       {!stars && review.rating !== null && (
         <span className="text-amber-500">{review.rating}/10</span>
       )}
-      {review.watchedDate && (
-        <span className="text-stone-500">watched {review.watchedDate}</span>
-      )}
     </>
   )
 
