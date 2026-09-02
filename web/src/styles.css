@@ -5,6 +5,11 @@
   box-sizing: border-box;
 }
 
+html {
+  /* Always light — e-reader app, never follow OS dark mode. */
+  color-scheme: light;
+}
+
 html,
 body,
 #app {
@@ -13,5 +18,6 @@ body,
 
 body {
   margin: 0;
+  /* Warm paper backdrop (tailwind stone-50). */
+  background-color: #fafaf9;
 }
-

@@ -1,9 +1,9 @@
 import { useState, type FormEvent } from 'react'
-import { useRouter } from '@tanstack/react-router'
+import { useNavigate } from '@tanstack/react-router'
 import { addFilmFn } from '../server/films'
 
 export function AddFilmForm() {
-  const router = useRouter()
+  const navigate = useNavigate()
   const [slug, setSlug] = useState('')
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -14,9 +14,10 @@ export function AddFilmForm() {
     setPending(true)
     setError(null)
     try {
-      await addFilmFn({ data: { slug: slug.trim() } })
+      const film = await addFilmFn({ data: { slug: slug.trim() } })
       setSlug('')
-      await router.invalidate()
+      // Land on the film page so the user sees scraping progress + logs live.
+      await navigate({ to: '/films/$slug', params: { slug: film.slug } })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add film')
     } finally {
@@ -25,25 +26,25 @@ export function AddFilmForm() {
   }
 
   return (
-    <div className="mb-8">
+    <div className="mb-2">
       <form onSubmit={onSubmit} className="flex flex-col gap-2 sm:flex-row">
         <input
           type="text"
           value={slug}
           onChange={(e) => setSlug(e.target.value)}
           placeholder="letterboxd slug, e.g. the-matrix"
-          className="flex-1 rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+          className="flex-1 rounded-md border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 placeholder-stone-400 focus:border-green-600 focus:outline-none focus:ring-2 focus:ring-green-600/30"
           aria-label="Film slug"
         />
         <button
           type="submit"
           disabled={pending}
-          className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          className="rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700 disabled:opacity-50"
         >
           {pending ? 'Adding…' : 'Add Film'}
         </button>
       </form>
-      {error && <p className="mt-2 text-sm text-red-500">{error}</p>}
+      {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
     </div>
   )
 }

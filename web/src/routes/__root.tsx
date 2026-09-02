@@ -35,7 +35,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body>
-        <div className="mx-auto max-w-3xl px-4 py-8 dark:bg-gray-950 dark:text-gray-100">
+        <div className="mx-auto min-h-screen max-w-2xl px-6 py-10 text-stone-900">
           {children}
         </div>
         <TanStackDevtools

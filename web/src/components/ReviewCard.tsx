@@ -15,28 +15,28 @@ export function ReviewCard({ review }: { review: Review }) {
           href={review.authorUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="font-semibold hover:underline"
+          className="font-semibold text-stone-900 hover:underline"
         >
           {review.author}
         </a>
       ) : (
-        <span className="font-semibold">{review.author}</span>
+        <span className="font-semibold text-stone-900">{review.author}</span>
       )}
-      {stars && <span className="text-yellow-500">{stars}</span>}
+      {stars && <span className="text-amber-500">{stars}</span>}
       {!stars && review.rating !== null && (
-        <span className="text-yellow-500">{review.rating}/10</span>
+        <span className="text-amber-500">{review.rating}/10</span>
       )}
       {review.watchedDate && (
-        <span className="text-gray-500 dark:text-gray-400">watched {review.watchedDate}</span>
+        <span className="text-stone-500">watched {review.watchedDate}</span>
       )}
     </>
   )
 
   return (
-    <li className="rounded border border-gray-200 p-4 dark:border-gray-700">
-      <div className="mb-2 flex flex-wrap items-center gap-3 text-sm">{header}</div>
+    <li className="border-b border-stone-200 py-8 first:pt-0 last:border-b-0 last:pb-0">
+      <div className="mb-3 flex flex-wrap items-center gap-3 text-sm">{header}</div>
       <div
-        className="max-w-none space-y-3 leading-relaxed [&_a]:underline [&_blockquote]:border-l-4 [&_blockquote]:border-gray-300 [&_blockquote]:pl-3 [&_blockquote]:italic [&_em]:italic [&_p]:m-0 [&_strong]:font-bold dark:[&_blockquote]:border-gray-600"
+        className="text-justify font-serif text-base leading-7 text-stone-800 [&_a]:text-sky-700 [&_a]:underline [&_blockquote]:border-l-4 [&_blockquote]:border-stone-300 [&_blockquote]:pl-3 [&_blockquote]:italic [&_em]:italic [&_p]:mb-3 [&_p]:last:mb-0 [&_strong]:font-bold"
         dangerouslySetInnerHTML={{ __html: review.html }}
       />
       {review.reviewUrl && (
@@ -44,7 +44,7 @@ export function ReviewCard({ review }: { review: Review }) {
           href={review.reviewUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-3 inline-block text-sm text-blue-600 hover:underline dark:text-blue-400"
+          className="mt-4 inline-block text-sm text-sky-700 hover:underline"
         >
           View on Letterboxd →
         </a>
