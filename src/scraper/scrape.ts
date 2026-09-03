@@ -62,6 +62,18 @@ export async function resolveSlug(slugOrTmdbId: string): Promise<string> {
   throw new Error('Could not resolve slug from TMDB ID')
 }
 
+/**
+ * User-facing link for the "View on Letterboxd" button: `/{user}/film/{slug}/`
+ * shows the author's page for the film, including their review. The parsed
+ * `entry.reviewUrl` is only the internal full-text view (`/s/full-text/...`),
+ * so it is used solely as a fallback when the author username is unknown.
+ */
+function publicReviewUrl(entry: PendingReview, slug: string): string {
+  return entry.author
+    ? `${BASE_URL}/${entry.author}/film/${slug}/`
+    : entry.reviewUrl
+}
+
 export async function scrapeFilmReviews(
   slug: string,
   options?: ScrapeOptions
@@ -115,7 +127,7 @@ export async function scrapeFilmReviews(
       author: entry.author,
       authorUrl: entry.authorUrl,
       html: reviewHTML,
-      reviewUrl: entry.reviewUrl,
+      reviewUrl: publicReviewUrl(entry, slug),
       rating: entry.rating,
       watchedDate: entry.watchedDate,
       stream: entry.stream,
