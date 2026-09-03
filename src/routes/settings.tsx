@@ -1,5 +1,5 @@
-import { useState, type FormEvent } from 'react'
-import { createFileRoute, useRouter } from '@tanstack/react-router'
+import { useEffect, useRef, useState } from 'react'
+import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
 import {
   getSortModeFn,
   getTargetReviewsFn,
@@ -50,40 +50,59 @@ function SettingsPage() {
   const [pending, setPending] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const lastSaved = useRef({ value: String(targetReviews), mode })
 
-  async function onSubmit(e: FormEvent) {
-    e.preventDefault()
+  // Auto-save: debounced save whenever the settings change, no button needed.
+  useEffect(() => {
     const parsed = Number.parseInt(value, 10)
-    if (Number.isNaN(parsed)) {
-      setError('Enter a number between 1 and 100')
+    if (Number.isNaN(parsed)) return
+
+    const nextValue = String(parsed)
+    if (nextValue === lastSaved.current.value && mode === lastSaved.current.mode) {
       return
     }
-    setPending(true)
-    setError(null)
+
+    let cancelled = false
     setSaved(false)
-    try {
-      const clamped = await saveTargetReviewsFn({ data: { value: parsed } })
-      const savedMode = await saveSortModeFn({ data: { value: mode } })
-      setValue(String(clamped))
-      setMode(savedMode)
-      setSaved(true)
-      await router.invalidate()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save')
-    } finally {
-      setPending(false)
+    const timer = setTimeout(async () => {
+      setPending(true)
+      setError(null)
+      try {
+        const clamped = await saveTargetReviewsFn({ data: { value: parsed } })
+        const savedMode = await saveSortModeFn({ data: { value: mode } })
+        if (cancelled) return
+        lastSaved.current = { value: String(clamped), mode: savedMode }
+        setValue(String(clamped))
+        setMode(savedMode)
+        setSaved(true)
+        await router.invalidate()
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Failed to save')
+        }
+      } finally {
+        if (!cancelled) setPending(false)
+      }
+    }, 600)
+
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
     }
-  }
+  }, [value, mode, router])
 
   return (
     <main>
-      <h1 className="text-3xl font-bold tracking-tight text-stone-900">
+      <Link to="/" className="text-sm text-sky-700 hover:underline">
+        ← Back
+      </Link>
+      <h1 className="mt-4 text-3xl font-bold tracking-tight text-stone-900">
         Settings
       </h1>
       <p className="mt-1 text-sm text-stone-500">
         Configure how reviews are scraped from Letterboxd.
       </p>
-      <form onSubmit={onSubmit} className="mt-8 max-w-md">
+      <div className="mt-8 max-w-md">
         <fieldset className="border-0 p-0">
           <legend className="block text-sm font-medium text-stone-700">
             Review sort order
@@ -99,10 +118,7 @@ function SettingsPage() {
                   name="sort-mode"
                   value={option.value}
                   checked={mode === option.value}
-                  onChange={() => {
-                    setMode(option.value)
-                    setSaved(false)
-                  }}
+                  onChange={() => setMode(option.value)}
                   className="mt-1 accent-green-600"
                 />
                 <span>
@@ -130,25 +146,16 @@ function SettingsPage() {
             min={1}
             max={100}
             value={value}
-            onChange={(e) => {
-              setValue(e.target.value)
-              setSaved(false)
-            }}
+            onChange={(e) => setValue(e.target.value)}
             className="w-24 rounded-md border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-green-600/30"
           />
-          <button
-            type="submit"
-            disabled={pending}
-            className="rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700 disabled:opacity-50"
-          >
-            {pending ? 'Saving…' : 'Save'}
-          </button>
         </div>
-        {saved && !error && (
+        {pending && !error && <p className="mt-2 text-sm text-stone-500">Saving…</p>}
+        {saved && !error && !pending && (
           <p className="mt-2 text-sm text-green-700">Saved</p>
         )}
         {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
-      </form>
+      </div>
     </main>
   )
 }
