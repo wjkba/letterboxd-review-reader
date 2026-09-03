@@ -22,10 +22,10 @@ function IndexPage() {
 
   return (
     <main>
-      <h1 className="text-3xl font-bold tracking-tight text-stone-900">
+      <h1 className="text-3xl font-bold tracking-tight text-ink-fg">
         Letterboxd Reviews
       </h1>
-      <p className="mt-1 text-sm text-stone-500">
+      <p className="mt-1 text-sm text-ink-meta">
         Add a film to read its Letterboxd reviews.
       </p>
       <div className="mt-6">
@@ -33,23 +33,22 @@ function IndexPage() {
       </div>
       <div className="mb-4 mt-10 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <h2 className="text-sm font-bold text-stone-700">Recent</h2>
+          <h2 className="text-sm font-bold text-ink-fg">Recent</h2>
           {isScraping && (
-            <span className="flex items-center gap-1.5 text-xs font-medium text-sky-600">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-sky-500" />
+            <span aria-live="polite" className="text-xs font-medium text-ink-fg">
               scraping…
             </span>
           )}
         </div>
         <Link
           to="/settings"
-          className="text-sm text-stone-500 underline-offset-2 hover:text-stone-900 hover:underline"
+          className="inline-flex min-h-11 items-center text-sm text-ink-fg underline underline-offset-2 can-hover:no-underline"
         >
           Settings
         </Link>
       </div>
       {films.length === 0 ? (
-        <p className="text-sm text-stone-500">No films yet. Add one above.</p>
+        <p className="text-sm text-ink-meta">No films yet. Add one above.</p>
       ) : (
         <ul className="space-y-2">
           {films.map((film) => (

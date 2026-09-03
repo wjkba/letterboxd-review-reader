@@ -80,16 +80,14 @@ export function AddFilmForm() {
             onBlur={onBlur}
             onFocus={onFocus}
             placeholder="Search a film or paste a slug…"
-            className={`w-full rounded-md border bg-white px-3 py-2 text-sm text-stone-900 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-green-600/30 ${
-              open ? 'border-green-600' : 'border-stone-300'
-            }`}
+            className="min-h-11 w-full border border-ink-border bg-ink-bg px-3 py-2 text-sm text-ink-fg placeholder:text-ink-meta"
             aria-label="Film title or letterboxd slug"
             role="combobox"
             aria-expanded={open}
             aria-controls="tmdb-results"
           />
           {searching && !isSlug && (
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-stone-400">
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-ink-meta">
               searching…
             </span>
           )}
@@ -97,7 +95,7 @@ export function AddFilmForm() {
             <div
               id="tmdb-results"
               role="listbox"
-              className="absolute left-0 right-0 top-full z-10 mt-1 max-h-64 overflow-y-auto rounded-md border border-stone-200 bg-white shadow-lg shadow-stone-900/5"
+              className="absolute left-0 right-0 top-full z-10 mt-1 max-h-64 overflow-y-auto border-2 border-ink-border bg-ink-bg"
             >
               {results && results.length > 0 ? (
                 results.map((movie, i) => (
@@ -112,15 +110,19 @@ export function AddFilmForm() {
                       pickMovie(movie)
                     }}
                     onMouseEnter={() => setActiveIndex(i)}
-                    className={`block w-full px-3 py-2 text-left text-sm ${
+                    className={`flex min-h-11 w-full items-center px-3 text-left text-sm ${
                       i === activeIndex
-                        ? 'bg-green-50 text-green-900'
-                        : 'text-stone-900'
+                        ? 'bg-ink-fg text-ink-bg'
+                        : 'text-ink-fg can-hover:bg-ink-hover'
                     }`}
                   >
                     <span className="font-semibold">{movie.title}</span>
                     {movie.release_date && (
-                      <span className="text-stone-500">
+                      <span
+                        className={
+                          i === activeIndex ? 'text-ink-bg' : 'text-ink-meta'
+                        }
+                      >
                         {' '}
                         ({movie.release_date.slice(0, 4)})
                       </span>
@@ -128,7 +130,7 @@ export function AddFilmForm() {
                   </button>
                 ))
               ) : (
-                <p className="px-3 py-2 text-sm text-stone-500">
+                <p className="px-3 py-2 text-sm text-ink-meta">
                   {searching ? 'Searching…' : 'No results'}
                 </p>
               )}
@@ -138,17 +140,21 @@ export function AddFilmForm() {
         <button
           type="submit"
           disabled={pending || !trimmed}
-          className="rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700 disabled:opacity-50"
+          className="min-h-11 border border-ink-border bg-ink-bg px-4 py-2 text-sm font-medium text-ink-fg active:bg-ink-fg active:text-ink-bg can-hover:bg-ink-hover disabled:opacity-50"
         >
           {pending ? 'Adding…' : 'Add Film'}
         </button>
       </form>
       {isSlug && (
-        <p className="mt-2 text-xs text-stone-500">
+        <p className="mt-2 text-xs text-ink-meta">
           Adding slug <span className="font-mono">{trimmed}</span> directly
         </p>
       )}
-      {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+      {error && (
+        <p aria-live="assertive" className="mt-2 text-sm text-red-700">
+          {error}
+        </p>
+      )}
     </div>
   )
 }

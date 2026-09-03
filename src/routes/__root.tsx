@@ -49,8 +49,9 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         {/* 65ch keeps review text at ~60-66 chars/line — the readable
-            measure for long-form e-ink reading (50-75 CPL range). */}
-        <div className="mx-auto min-h-screen max-w-[65ch] px-4 py-10 text-stone-900">
+            measure for long-form e-ink reading (50-75 CPL range). Side
+            padding respects safe-area insets (thick e-reader bezels). */}
+        <div className="mx-auto min-h-screen max-w-[65ch] py-10 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] text-ink-fg">
           {children}
         </div>
         <TanStackDevtools

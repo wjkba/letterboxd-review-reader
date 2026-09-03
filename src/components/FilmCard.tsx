@@ -7,12 +7,12 @@ import { setFilmReadStatusFn } from '#/server/progress'
 
 export function FilmCard({ film }: { film: Film }) {
   return (
-    <li className="relative rounded-md border border-stone-200 bg-white px-4 py-3.5 transition-colors hover:border-stone-400">
+    <li className="relative border border-ink-border bg-ink-bg px-4 py-3.5">
       <Link to="/films/$slug" params={{ slug: film.slug }} className="block">
-        <div className="flex flex-wrap items-center justify-between gap-2 pr-8">
-          <h2 className="text-base font-semibold text-stone-900">{film.title}</h2>
+        <div className="flex flex-wrap items-center justify-between gap-2 pr-14">
+          <h2 className="text-base font-semibold text-ink-fg">{film.title}</h2>
         </div>
-        <p className="mt-2 text-sm text-stone-600">
+        <p className="mt-2 text-sm text-ink-meta">
           {film.reviewCount} review{film.reviewCount === 1 ? '' : 's'}
           {film.readStatus === 'reading' && (
             <>
@@ -147,13 +147,13 @@ function FilmMenu({
         aria-expanded={open}
         aria-label={`Actions for ${title}`}
         onClick={() => setOpen((o) => !o)}
-        className="rounded p-1 text-stone-400 transition-colors hover:bg-stone-100 hover:text-stone-600 focus:outline-none focus:ring-2 focus:ring-green-600/30"
+        className="flex h-11 w-11 items-center justify-center border border-ink-border bg-ink-bg text-ink-fg can-hover:bg-ink-hover"
       >
         <svg
           viewBox="0 0 16 16"
           fill="currentColor"
           aria-hidden="true"
-          className="h-4 w-4"
+          className="h-5 w-5"
         >
           <circle cx="2.5" cy="8" r="1.5" />
           <circle cx="8" cy="8" r="1.5" />
@@ -163,11 +163,11 @@ function FilmMenu({
       {open && (
         <div
           role="menu"
-          className="absolute right-0 top-full z-10 mt-1 w-36 rounded-md border border-stone-200 bg-white py-1 shadow-lg shadow-stone-900/5"
+          className="absolute right-0 top-full z-10 mt-1 w-36 border-2 border-ink-border bg-ink-bg py-1"
         >
           {confirming ? (
             <>
-              <p className="px-3 py-1.5 text-xs text-stone-500">
+              <p className="border-b border-ink-subtle px-3 py-2 text-xs text-ink-meta">
                 Delete this film permanently?
               </p>
               <button
@@ -175,7 +175,7 @@ function FilmMenu({
                 role="menuitem"
                 disabled={busy}
                 onClick={onDelete}
-                className="block w-full px-3 py-1.5 text-left text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+                className="flex min-h-11 w-full items-center px-3 text-left text-sm font-bold text-ink-fg can-hover:bg-ink-hover disabled:opacity-50"
               >
                 {pending === 'delete' ? 'Deleting…' : 'Confirm delete'}
               </button>
@@ -184,7 +184,7 @@ function FilmMenu({
                 role="menuitem"
                 disabled={busy}
                 onClick={() => setConfirming(false)}
-                className="block w-full px-3 py-1.5 text-left text-sm text-stone-600 hover:bg-stone-50 disabled:opacity-50"
+                className="flex min-h-11 w-full items-center px-3 text-left text-sm text-ink-fg can-hover:bg-ink-hover disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -196,7 +196,7 @@ function FilmMenu({
                 role="menuitem"
                 disabled={busy || scraping}
                 onClick={onRescrape}
-                className="block w-full px-3 py-1.5 text-left text-sm text-stone-700 hover:bg-stone-50 disabled:opacity-50"
+                className="flex min-h-11 w-full items-center px-3 text-left text-sm text-ink-fg can-hover:bg-ink-hover disabled:opacity-50"
               >
                 {pending === 'rescrape' ? 'Scraping…' : 'Rescrape'}
               </button>
@@ -205,7 +205,7 @@ function FilmMenu({
                 role="menuitem"
                 disabled={busy}
                 onClick={onMarkRead}
-                className="block w-full px-3 py-1.5 text-left text-sm text-stone-700 hover:bg-stone-50 disabled:opacity-50"
+                className="flex min-h-11 w-full items-center px-3 text-left text-sm text-ink-fg can-hover:bg-ink-hover disabled:opacity-50"
               >
                 {pending === 'markRead'
                   ? 'Saving…'
@@ -221,13 +221,17 @@ function FilmMenu({
                   setConfirming(true)
                   setError(null)
                 }}
-                className="block w-full px-3 py-1.5 text-left text-sm text-red-600 hover:bg-red-50 disabled:opacity-50"
+                className="flex min-h-11 w-full items-center px-3 text-left text-sm font-bold text-ink-fg can-hover:bg-ink-hover disabled:opacity-50"
               >
                 Delete
               </button>
             </>
           )}
-          {error && <p className="px-3 py-1.5 text-xs text-red-600">{error}</p>}
+          {error && (
+            <p aria-live="assertive" className="px-3 py-2 text-xs text-red-700">
+              {error}
+            </p>
+          )}
         </div>
       )}
     </div>

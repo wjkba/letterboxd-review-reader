@@ -39,11 +39,14 @@ type LoaderData = ReturnType<typeof Route.useLoaderData>
 function NotFoundState({ message }: { message: string }) {
   return (
     <main>
-      <Link to="/" className="text-sm text-sky-700 hover:underline">
+      <Link
+        to="/"
+        className="inline-flex min-h-11 items-center text-sm text-ink-fg underline underline-offset-2 can-hover:no-underline"
+      >
         ← Back
       </Link>
       <h1 className="mt-4 text-2xl font-bold">Film not found</h1>
-      <p className="mt-2 text-stone-500">{message}</p>
+      <p className="mt-2 text-ink-meta">{message}</p>
     </main>
   )
 }
@@ -85,17 +88,20 @@ function FilmPage() {
 
   return (
     <main>
-      <Link to="/" className="text-sm text-sky-700 hover:underline">
+      <Link
+        to="/"
+        className="inline-flex min-h-11 items-center text-sm text-ink-fg underline underline-offset-2 can-hover:no-underline"
+      >
         ← Back
       </Link>
       <h1 className="mt-4 text-3xl font-bold tracking-tight">{film.title}</h1>
-      <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-stone-600">
+      <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-ink-meta">
         <StatusBadge status={film.scrapeStatus} />
         <span>
           {film.reviewCount} review{film.reviewCount === 1 ? '' : 's'}
         </span>
         {effectivelyRead ? (
-          <span className="text-stone-400">✓ Read</span>
+          <span>✓ Read</span>
         ) : seenCount > 0 ? (
           <span>
             {seenCount} of {film.reviewCount} read
@@ -104,16 +110,18 @@ function FilmPage() {
         <span>scraped {relativeTime(film.lastScrapedAt)}</span>
       </div>
       {film.scrapeError && (
-        <p className="mt-2 text-sm text-red-600">{film.scrapeError}</p>
+        <p aria-live="assertive" className="mt-2 text-sm text-red-700">
+          {film.scrapeError}
+        </p>
       )}
 
-      <h2 className="mb-4 mt-10 text-sm font-bold text-stone-700">Reviews</h2>
+      <h2 className="mb-4 mt-10 text-sm font-bold text-ink-fg">Reviews</h2>
       {reviews.length === 0 && film.scrapeStatus === 'scraping' ? (
-        <p className="text-sm text-stone-500">
+        <p className="text-sm text-ink-meta">
           Scraping in progress… reviews will appear here shortly.
         </p>
       ) : reviews.length === 0 ? (
-        <p className="text-sm text-stone-500">
+        <p className="text-sm text-ink-meta">
           {film.scrapeStatus === 'failed' && film.scrapeError
             ? `Scrape failed: ${film.scrapeError}`
             : 'No reviews yet.'}

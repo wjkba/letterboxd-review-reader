@@ -93,25 +93,28 @@ function SettingsPage() {
 
   return (
     <main>
-      <Link to="/" className="text-sm text-sky-700 hover:underline">
+      <Link
+        to="/"
+        className="inline-flex min-h-11 items-center text-sm text-ink-fg underline underline-offset-2 can-hover:no-underline"
+      >
         ← Back
       </Link>
-      <h1 className="mt-4 text-3xl font-bold tracking-tight text-stone-900">
+      <h1 className="mt-4 text-3xl font-bold tracking-tight text-ink-fg">
         Settings
       </h1>
-      <p className="mt-1 text-sm text-stone-500">
+      <p className="mt-1 text-sm text-ink-meta">
         Configure how reviews are scraped from Letterboxd.
       </p>
       <div className="mt-8 max-w-md">
         <fieldset className="border-0 p-0">
-          <legend className="block text-sm font-medium text-stone-700">
+          <legend className="block text-sm font-medium text-ink-fg">
             Review sort order
           </legend>
           <div className="mt-2 space-y-2">
             {SORT_OPTIONS.map((option) => (
               <label
                 key={option.value}
-                className="flex cursor-pointer items-start gap-2"
+                className="flex min-h-11 cursor-pointer items-center gap-2"
               >
                 <input
                   type="radio"
@@ -119,13 +122,13 @@ function SettingsPage() {
                   value={option.value}
                   checked={mode === option.value}
                   onChange={() => setMode(option.value)}
-                  className="mt-1 accent-green-600"
+                  className="h-4 w-4 shrink-0 accent-ink-fg"
                 />
                 <span>
-                  <span className="block text-sm text-stone-900">
+                  <span className="block text-sm text-ink-fg">
                     {option.label}
                   </span>
-                  <span className="block text-xs text-stone-500">
+                  <span className="block text-xs text-ink-meta">
                     {option.description}
                   </span>
                 </span>
@@ -135,7 +138,7 @@ function SettingsPage() {
         </fieldset>
         <label
           htmlFor="target-reviews"
-          className="mt-6 block text-sm font-medium text-stone-700"
+          className="mt-6 block text-sm font-medium text-ink-fg"
         >
           Long-form reviews to fetch per film
         </label>
@@ -147,14 +150,25 @@ function SettingsPage() {
             max={100}
             value={value}
             onChange={(e) => setValue(e.target.value)}
-            className="w-24 rounded-md border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-green-600/30"
+            className="min-h-11 w-28 border border-ink-border bg-ink-bg px-3 py-2 text-sm text-ink-fg"
           />
         </div>
-        {pending && !error && <p className="mt-2 text-sm text-stone-500">Saving…</p>}
-        {saved && !error && !pending && (
-          <p className="mt-2 text-sm text-green-700">Saved</p>
+        {/* Inline status instead of toasts; survives the render delay (§5). */}
+        {pending && !error && (
+          <p aria-live="polite" className="mt-2 text-sm text-ink-meta">
+            Saving…
+          </p>
         )}
-        {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+        {saved && !error && !pending && (
+          <p aria-live="polite" className="mt-2 text-sm text-ink-fg">
+            ✓ Saved
+          </p>
+        )}
+        {error && (
+          <p aria-live="assertive" className="mt-2 text-sm text-red-700">
+            {error}
+          </p>
+        )}
       </div>
     </main>
   )
