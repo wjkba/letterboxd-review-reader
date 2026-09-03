@@ -9,7 +9,7 @@
 
 services:
   web:
-    build: ./web
+    build: .
     image: letterboxd-review-reader:latest
     ports:
       - "3000:3000"
