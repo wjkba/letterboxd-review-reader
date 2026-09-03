@@ -11,6 +11,8 @@ export const films = sqliteTable('films', {
   scrapeError: text('scrape_error'),
   lastScrapedAt: integer('last_scraped_at'),
   reviewCount: integer('review_count').notNull().default(0),
+  readStatus: text('read_status').notNull().default('unread'),
+  reviewsRead: integer('reviews_read').notNull().default(0),
   addedAt: integer('added_at')
     .notNull()
     .$defaultFn(() => Date.now()),

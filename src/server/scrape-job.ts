@@ -115,6 +115,11 @@ export async function runScrapeJob(
       .from(reviews)
       .where(eq(reviews.filmId, film.id))
 
+    // Reset read progress when the scrape brought in new reviews, so a
+    // previously-read film returns to 'unread' with fresh content. If no new
+    // reviews were found, leave the user's progress untouched.
+    const resetProgress = total > film.reviewCount
+
     await db
       .update(films)
       .set({
@@ -122,6 +127,9 @@ export async function runScrapeJob(
         lastScrapedAt: Date.now(),
         scrapeStatus: 'completed',
         scrapeError: null,
+        ...(resetProgress
+          ? { readStatus: 'unread' as const, reviewsRead: 0 }
+          : {}),
       })
       .where(eq(films.id, film.id))
 

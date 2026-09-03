@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { getFilmFn } from '../../server/films'
 import { getReviewsFn } from '../../server/reviews'
@@ -5,6 +6,8 @@ import type { Film, Review } from '#/shared/api-types'
 import { StatusBadge } from '#/shared/status-badge'
 import { relativeTime } from '#/shared/relative-time'
 import { usePollingWhile } from '#/hooks/use-polling'
+import { useReviewScrollAnchor } from '#/hooks/use-review-scroll-anchor'
+import { useReadProgress } from '#/hooks/use-read-progress'
 import { ReviewCard } from '../../components/ReviewCard'
 
 export const Route = createFileRoute('/films/$slug')({
@@ -55,11 +58,30 @@ function FilmPage() {
   // status and the reviews (including the live reviewCount) in one pass.
   usePollingWhile(scraping, 2000)
 
+  // Review-anchored scroll restore + read-progress tracking. Hooks run
+  // unconditionally (before the not-found early return); their effects are
+  // no-ops while there are no reviews to work with.
+  const listRef = useRef<HTMLUListElement>(null)
+  const reviews = data.reviews
+  useReviewScrollAnchor({
+    slug: params.slug,
+    reviews,
+    containerRef: listRef,
+  })
+  const seenCount = useReadProgress({
+    slug: params.slug,
+    reviews,
+    reviewsRead: data.film?.reviewsRead ?? 0,
+    containerRef: listRef,
+  })
+
   if (notFound || !data.film) {
     return <NotFoundState message={message ?? `No film with slug "${params.slug}"`} />
   }
 
-  const { film, reviews } = data
+  const { film } = data
+  const effectivelyRead =
+    film.readStatus === 'read' || (reviews.length > 0 && seenCount >= reviews.length)
 
   return (
     <main>
@@ -72,6 +94,13 @@ function FilmPage() {
         <span>
           {film.reviewCount} review{film.reviewCount === 1 ? '' : 's'}
         </span>
+        {effectivelyRead ? (
+          <span className="text-stone-400">✓ Read</span>
+        ) : seenCount > 0 ? (
+          <span>
+            {seenCount} of {film.reviewCount} read
+          </span>
+        ) : null}
         <span>scraped {relativeTime(film.lastScrapedAt)}</span>
       </div>
       {film.scrapeError && (
@@ -90,7 +119,7 @@ function FilmPage() {
             : 'No reviews yet.'}
         </p>
       ) : (
-        <ul>
+        <ul ref={listRef}>
           {reviews.map((review: Review) => (
             <ReviewCard key={review.id} review={review} />
           ))}

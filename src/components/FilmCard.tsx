@@ -2,9 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useRouter } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
 import type { Film } from '#/shared/api-types'
-import { StatusBadge } from '#/shared/status-badge'
-import { relativeTime } from '#/shared/relative-time'
 import { deleteFilmFn, rescrapeFilmFn } from '#/server/films'
+import { setFilmReadStatusFn } from '#/server/progress'
 
 export function FilmCard({ film }: { film: Film }) {
   return (
@@ -12,39 +11,50 @@ export function FilmCard({ film }: { film: Film }) {
       <Link to="/films/$slug" params={{ slug: film.slug }} className="block">
         <div className="flex flex-wrap items-center justify-between gap-2 pr-8">
           <h2 className="text-base font-semibold text-stone-900">{film.title}</h2>
-          <StatusBadge status={film.scrapeStatus} />
         </div>
         <p className="mt-2 text-sm text-stone-600">
-          {film.reviewCount} review{film.reviewCount === 1 ? '' : 's'} · scraped{' '}
-          {relativeTime(film.lastScrapedAt)}
+          {film.reviewCount} review{film.reviewCount === 1 ? '' : 's'}
+          {film.readStatus === 'reading' && (
+            <>
+              {' '}
+              · {film.reviewsRead} of {film.reviewCount} read
+            </>
+          )}
+          {film.readStatus === 'read' && <> · Read</>}
         </p>
       </Link>
       <FilmMenu
         slug={film.slug}
         title={film.title}
         scraping={film.scrapeStatus === 'scraping'}
+        readStatus={film.readStatus}
       />
     </li>
   )
 }
 
-/** Three-dot card menu with Rescrape and (confirmed) Delete actions. */
+/** Three-dot card menu with Rescrape, read-status toggle and (confirmed) Delete actions. */
 function FilmMenu({
   slug,
   title,
   scraping,
+  readStatus,
 }: {
   slug: string
   title: string
   scraping: boolean
+  readStatus: Film['readStatus']
 }) {
   const router = useRouter()
   const rescrape = useServerFn(rescrapeFilmFn)
   const remove = useServerFn(deleteFilmFn)
+  const markRead = useServerFn(setFilmReadStatusFn)
 
   const [open, setOpen] = useState(false)
   const [confirming, setConfirming] = useState(false)
-  const [pending, setPending] = useState<'rescrape' | 'delete' | null>(null)
+  const [pending, setPending] = useState<
+    'rescrape' | 'markRead' | 'delete' | null
+  >(null)
   const [error, setError] = useState<string | null>(null)
 
   const wrapRef = useRef<HTMLDivElement>(null)
@@ -89,6 +99,24 @@ function FilmMenu({
       await router.invalidate()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to rescrape')
+    } finally {
+      setPending(null)
+    }
+  }
+
+  async function onMarkRead() {
+    setPending('markRead')
+    setError(null)
+    try {
+      await markRead({
+        data: { slug, status: readStatus === 'read' ? 'unread' : 'read' },
+      })
+      setOpen(false)
+      await router.invalidate()
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Failed to update read status',
+      )
     } finally {
       setPending(null)
     }
@@ -171,6 +199,19 @@ function FilmMenu({
                 className="block w-full px-3 py-1.5 text-left text-sm text-stone-700 hover:bg-stone-50 disabled:opacity-50"
               >
                 {pending === 'rescrape' ? 'Scraping…' : 'Rescrape'}
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                disabled={busy}
+                onClick={onMarkRead}
+                className="block w-full px-3 py-1.5 text-left text-sm text-stone-700 hover:bg-stone-50 disabled:opacity-50"
+              >
+                {pending === 'markRead'
+                  ? 'Saving…'
+                  : readStatus === 'read'
+                    ? 'Mark as unread'
+                    : 'Mark as read'}
               </button>
               <button
                 type="button"

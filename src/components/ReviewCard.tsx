@@ -30,7 +30,10 @@ export function ReviewCard({ review }: { review: Review }) {
   )
 
   return (
-    <li className="border-b border-stone-300 py-10 first:pt-0 last:border-b-0 last:pb-0">
+    <li
+      data-review-id={review.id}
+      className="border-b border-stone-300 py-10 first:pt-0 last:border-b-0 last:pb-0"
+    >
       <div className="mb-3 flex flex-wrap items-center gap-3 text-sm">{header}</div>
       <div
         className="text-left font-serif text-base leading-[1.7] text-stone-900 [&_a]:font-medium [&_a]:text-stone-900 [&_a]:underline [&_blockquote]:border-l-4 [&_blockquote]:border-stone-400 [&_blockquote]:pl-4 [&_blockquote]:italic [&_em]:italic [&_p]:mb-4 [&_p]:last:mb-0 [&_strong]:font-bold"

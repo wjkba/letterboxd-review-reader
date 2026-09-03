@@ -15,6 +15,13 @@
       "when": 1788351594500,
       "tag": "0001_charming_giant_girl",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1788418882785,
+      "tag": "0002_unknown_lightspeed",
+      "breakpoints": true
     }
   ]
 }
