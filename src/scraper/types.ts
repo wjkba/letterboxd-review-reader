@@ -37,6 +37,8 @@ export interface PendingReview {
   reviewUrl: string
   rating: number | null
   watchedDate: string | null
+  /** Public permalink for this exact review (with viewing ordinal for rewatches), from the list item's attribution link. Null when the item has no such link. */
+  publicUrl: string | null
   stream: 'popular' | 'newest'
 }
 

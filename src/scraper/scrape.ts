@@ -63,15 +63,19 @@ export async function resolveSlug(slugOrTmdbId: string): Promise<string> {
 }
 
 /**
- * User-facing link for the "View on Letterboxd" button: `/{user}/film/{slug}/`
- * shows the author's page for the film, including their review. The parsed
- * `entry.reviewUrl` is only the internal full-text view (`/s/full-text/...`),
- * so it is used solely as a fallback when the author username is unknown.
+ * User-facing link for the "View on Letterboxd" button. The film reviews
+ * list page includes the exact per-review permalink (including the viewing
+ * ordinal for rewatches) in each item's attribution link, so it is used
+ * directly; the constructed author URL and the internal full-text URL
+ * (`entry.reviewUrl`) are fallbacks when no permalink was parsed.
  */
 function publicReviewUrl(entry: PendingReview, slug: string): string {
-  return entry.author
-    ? `${BASE_URL}/${entry.author}/film/${slug}/`
-    : entry.reviewUrl
+  return (
+    entry.publicUrl ??
+    (entry.author
+      ? `${BASE_URL}/${entry.author}/film/${slug}/`
+      : entry.reviewUrl)
+  )
 }
 
 export async function scrapeFilmReviews(

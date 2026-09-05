@@ -1,4 +1,4 @@
-import { count, eq } from 'drizzle-orm'
+import { and, count, eq, inArray, notInArray, sql } from 'drizzle-orm'
 import { db } from '../db'
 import type { Film, ScrapeJob } from '../db/schema'
 import { films, reviews, scrapeJobs } from '../db/schema'
@@ -71,12 +71,16 @@ export async function runScrapeJob(
     )
 
     let insertedCount = 0
+    const scrapedUrls = new Set<string>()
+    const scrapedAuthors = new Set<string>()
     const result = await scrapeFilmReviews(filmSlug, {
       targetReviews,
       sortMode,
       // Insert each review as it is scraped so the UI's polled
       // reviewCount grows live during the scrape.
       onReview: async (review, index) => {
+        scrapedUrls.add(review.reviewUrl)
+        if (review.author) scrapedAuthors.add(review.author)
         const inserted = await db
           .insert(reviews)
           .values({
@@ -107,6 +111,29 @@ export async function runScrapeJob(
     })
 
     const reviewsAdded = insertedCount
+
+    // Legacy rows stored the constructed `/{author}/film/{slug}/` URL, which is
+    // wrong (404s) for authors with multiple reviews. Any such row for an author
+    // seen in this scrape that does not exactly match a scraped permalink is a
+    // stale duplicate superseded by a corrected permalink.
+    if (scrapedAuthors.size > 0) {
+      const deleted = await db
+        .delete(reviews)
+        .where(
+          and(
+            eq(reviews.filmId, film.id),
+            inArray(reviews.author, [...scrapedAuthors]),
+            notInArray(reviews.reviewUrl, [...scrapedUrls]),
+            sql`(${reviews.reviewUrl} = '/' || ${reviews.author} || '/film/' || ${result.slug} || '/')`,
+          ),
+        )
+        .returning({ id: reviews.id })
+      if (deleted.length > 0) {
+        console.log(
+          `${resolvedTag} Removed ${deleted.length} stale legacy review URL(s)`,
+        )
+      }
+    }
 
     // Query the actual count so film.reviewCount is accurate even when
     // some reviews conflicted with existing rows.

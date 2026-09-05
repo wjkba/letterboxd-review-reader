@@ -83,6 +83,10 @@ export function parsePage(
       ? bodyText.attr('data-full-text-url')
       : null
 
+    // The attribution link ("Watched by / Rewatched by") href is the exact
+    // public review permalink, including the viewing ordinal for rewatches.
+    const publicHref = el.find('a.context').first().attr('href') ?? null
+
     // Only collapsed (long-form) reviews are fetched; short inline reviews are skipped.
     if (!fullTextUrl) continue
 
@@ -90,6 +94,7 @@ export function parsePage(
       author,
       authorUrl,
       reviewUrl: `${BASE_URL}${fullTextUrl}`,
+      publicUrl: publicHref ? `${BASE_URL}${publicHref}` : null,
       rating: parseRating($, el),
       watchedDate: parseWatchedDate($, el),
       stream,
