@@ -1,6 +1,6 @@
 import * as cheerio from 'cheerio'
 import { franc } from 'franc-min'
-import { BASE_URL, delay, getHTML, getHTMLWithRedirect } from './http'
+import { BASE_URL, CloudflareChallengeError, delay, getHTML, getHTMLWithRedirect } from './http'
 import { parsePage } from './parse'
 import type {
   PendingReview,
@@ -117,12 +117,49 @@ export async function scrapeFilmReviews(
     if (seen.has(entry.reviewUrl)) return
     seen.add(entry.reviewUrl)
 
-    const reviewHTML = await getHTML(entry.reviewUrl)
+    let reviewHTML: string
+    try {
+      reviewHTML = await getHTML(entry.reviewUrl)
+    } catch (err) {
+      // If Cloudflare is challenging us, every subsequent fetch will fail
+      // too — abort the whole scrape with a clear message instead of
+      // storing challenge pages as review content.
+      throw err instanceof CloudflareChallengeError
+        ? new Error(
+            `Cloudflare challenge while fetching review — aborting scrape (${entry.reviewUrl})`
+          )
+        : err
+    }
 
     // Language filter: drop reviews not in the allowed languages before
     // pushing or counting toward the target. The fetch already happened, so
     // keep the politeness delay before the loop moves on to the next entry.
+    // `isLanguageAllowed` parses its own input, so it gets the full page.
     if (!isLanguageAllowed(reviewHTML, allowedLanguages)) {
+      await delay(500)
+      return
+    }
+
+    // Store the response as a body fragment, never a whole page document:
+    // full-document markup (e.g. a Cloudflare challenge page that slipped
+    // past the challenge guard, or an error shell) injected into the list
+    // breaks layout and hijacks navigation. Normal full-text responses are
+    // already bare review fragments with no document markup; a full document
+    // means the response is not a review — skip rather than store it.
+    // Cheerio re-serialization guarantees a balanced fragment either way.
+    if (/<(!doctype|html|head|meta|script|style|body)[\s>]/i.test(reviewHTML)) {
+      console.warn(
+        `Full-document response instead of a review fragment — skipping: ${entry.reviewUrl}`
+      )
+      await delay(500)
+      return
+    }
+    const $ = cheerio.load(reviewHTML)
+    const bodyHTML = $('body').html()?.trim() ?? ''
+    if (!bodyHTML) {
+      console.warn(
+        `Empty review fragment — skipping review: ${entry.reviewUrl}`
+      )
       await delay(500)
       return
     }
@@ -130,7 +167,7 @@ export async function scrapeFilmReviews(
     const review: ScrapedReview = {
       author: entry.author,
       authorUrl: entry.authorUrl,
-      html: reviewHTML,
+      html: bodyHTML,
       reviewUrl: publicReviewUrl(entry, slug),
       viewingId: entry.viewingId,
       rating: entry.rating,

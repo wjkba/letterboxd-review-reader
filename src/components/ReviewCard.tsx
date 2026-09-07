@@ -9,6 +9,19 @@ function ratingStars(rating: number | null): string | null {
   return '★'.repeat(filled) + '☆'.repeat(5 - filled)
 }
 
+/**
+ * Markers of a whole-document or otherwise poisoned payload (e.g. a stored
+ * Cloudflare challenge page). The scraper stores only the `.body-text`
+ * fragment, so a row containing any of these predates that fix and must
+ * never be injected into the DOM — a full `<html>` blob inside an `<li>`
+ * breaks the page layout and hijacks navigation.
+ */
+const POISONED_HTML_PATTERN = /<html|<!doctype|<script|<style|<meta|<body|cf_chl/i
+
+function isPoisonedHtml(html: string): boolean {
+  return POISONED_HTML_PATTERN.test(html)
+}
+
 export function ReviewCard({ review }: { review: Review }) {
   const stars = ratingStars(review.rating)
   const header = (
@@ -38,10 +51,17 @@ export function ReviewCard({ review }: { review: Review }) {
       className="border-b border-ink-subtle py-10 first:pt-0 last:border-b-0 last:pb-0"
     >
       <div className="mb-3 flex flex-wrap items-center gap-3 text-sm">{header}</div>
-      <div
-        className="text-left font-serif text-base leading-[1.7] text-ink-fg [&_a]:font-medium [&_a]:text-ink-fg [&_a]:underline [&_blockquote]:border-l-4 [&_blockquote]:border-ink-meta [&_blockquote]:pl-4 [&_blockquote]:italic [&_em]:italic [&_p]:mb-4 [&_p]:last:mb-0 [&_strong]:font-bold"
-        dangerouslySetInnerHTML={{ __html: review.html }}
-      />
+      {isPoisonedHtml(review.html) ? (
+        <p className="text-left font-serif text-base italic text-ink-meta">
+          This review's content failed to load — re-fetch the film to repair
+          it.
+        </p>
+      ) : (
+        <div
+          className="text-left font-serif text-base leading-[1.7] text-ink-fg [&_a]:font-medium [&_a]:text-ink-fg [&_a]:underline [&_blockquote]:border-l-4 [&_blockquote]:border-ink-meta [&_blockquote]:pl-4 [&_blockquote]:italic [&_em]:italic [&_p]:mb-4 [&_p]:last:mb-0 [&_strong]:font-bold"
+          dangerouslySetInnerHTML={{ __html: review.html }}
+        />
+      )}
       {(review.reviewUrl || review.viewingId != null) && (
         <div className="mt-4 flex flex-wrap items-center gap-x-3 text-sm">
           {review.reviewUrl && (
