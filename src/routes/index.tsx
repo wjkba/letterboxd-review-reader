@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
+import { MdSettings } from 'react-icons/md'
 import { listFilmsFn } from '../server/films'
 import { AddFilmForm } from '../components/AddFilmForm'
 import { FilmCard } from '../components/FilmCard'
@@ -22,30 +23,33 @@ function IndexPage() {
 
   return (
     <main>
-      <h1 className="text-3xl font-bold tracking-tight text-ink-fg">
-        Letterboxd Reviews
-      </h1>
-      <p className="mt-1 text-sm text-ink-meta">
-        Add a film to read its Letterboxd reviews.
-      </p>
-      <div className="mt-6">
-        <AddFilmForm />
-      </div>
-      <div className="mb-4 mt-10 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <h2 className="text-sm font-bold text-ink-fg">Recent</h2>
-          {isScraping && (
-            <span aria-live="polite" className="text-xs font-medium text-ink-fg">
-              scraping…
-            </span>
-          )}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-ink-fg">
+            Letterboxd Reviews
+          </h1>
+          <p className="mt-1 text-sm text-ink-meta">
+            Add a film to read its Letterboxd reviews.
+          </p>
         </div>
         <Link
           to="/settings"
-          className="inline-flex min-h-11 items-center text-sm text-ink-fg underline underline-offset-2 can-hover:no-underline"
+          aria-label="Settings"
+          className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-sm text-ink-fg"
         >
-          Settings
+          <MdSettings size={20} aria-hidden="true" />
         </Link>
+      </div>
+      <div className="mt-6">
+        <AddFilmForm />
+      </div>
+      <div className="mb-4 mt-10 flex items-center gap-2">
+        <h2 className="text-sm font-bold text-ink-fg">Recent</h2>
+        {isScraping && (
+          <span aria-live="polite" className="text-xs font-medium text-ink-fg">
+            scraping…
+          </span>
+        )}
       </div>
       {films.length === 0 ? (
         <p className="text-sm text-ink-meta">No films yet. Add one above.</p>
