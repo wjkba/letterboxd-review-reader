@@ -100,14 +100,16 @@ function FilmPage() {
         <span>
           {film.reviewCount} review{film.reviewCount === 1 ? '' : 's'}
         </span>
-        {effectivelyRead ? (
+        {effectivelyRead && !scraping ? (
           <span>✓ Read</span>
-        ) : seenCount > 0 ? (
+        ) : seenCount > 0 && !scraping ? (
           <span>
             {seenCount} of {film.reviewCount} read
           </span>
         ) : null}
-        <span>scraped {relativeTime(film.lastScrapedAt)}</span>
+        {!scraping && film.lastScrapedAt && (
+          <span>scraped {relativeTime(film.lastScrapedAt)}</span>
+        )}
       </div>
       {film.scrapeError && (
         <p aria-live="assertive" className="mt-2 text-sm text-red-700">
