@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { MdArrowBack } from 'react-icons/md'
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
 import {
   getSortModeFn,
@@ -95,9 +96,10 @@ function SettingsPage() {
     <main>
       <Link
         to="/"
-        className="inline-flex min-h-11 items-center text-sm text-ink-fg underline underline-offset-2 can-hover:no-underline"
+        className="inline-flex min-h-11 items-center gap-1.5 text-sm text-ink-fg underline underline-offset-2 can-hover:no-underline"
       >
-        ← Back
+        <MdArrowBack size={16} aria-hidden="true" className="-mt-px" />
+        Back
       </Link>
       <h1 className="mt-4 text-3xl font-bold tracking-tight text-ink-fg">
         Settings

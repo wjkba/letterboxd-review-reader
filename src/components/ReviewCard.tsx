@@ -1,21 +1,41 @@
 import { useState } from 'react'
+import {
+  MdArrowOutward,
+  MdFavorite,
+  MdFavoriteBorder,
+  MdStar,
+  MdStarBorder,
+  MdStarHalf,
+} from 'react-icons/md'
 import { useServerFn } from '@tanstack/react-start'
 import type { Review } from '#/shared/api-types'
 import { likeReviewFn } from '../server/likes'
 
-function ratingStars(rating: number | null): string | null {
+/** One-based star slots; the fixed five-star row keys off these values. */
+const STAR_SLOTS = [1, 2, 3, 4, 5]
+
+function StarRating({ rating }: { rating: number | null }) {
   if (rating === null || Number.isNaN(rating)) return null
-  const filled = Math.max(0, Math.min(5, Math.round(rating / 2)))
-  return '★'.repeat(filled) + '☆'.repeat(5 - filled)
+  const stars = Math.max(0, Math.min(5, rating / 2))
+  return (
+    <span className="-mt-px inline-flex items-center gap-0.5 text-ink-fg">
+      <span aria-hidden="true" className="flex items-center gap-0.5">
+        {STAR_SLOTS.map((slot) => {
+          const fill = stars - (slot - 1)
+          if (fill >= 1) {
+            return <MdStar key={slot} size={16} aria-hidden="true" />
+          }
+          if (fill >= 0.5) {
+            return <MdStarHalf key={slot} size={16} aria-hidden="true" />
+          }
+          return <MdStarBorder key={slot} size={16} aria-hidden="true" />
+        })}
+      </span>
+      <span className="sr-only">{rating} out of 10</span>
+    </span>
+  )
 }
 
-/**
- * Markers of a whole-document or otherwise poisoned payload (e.g. a stored
- * Cloudflare challenge page). The scraper stores only the `.body-text`
- * fragment, so a row containing any of these predates that fix and must
- * never be injected into the DOM — a full `<html>` blob inside an `<li>`
- * breaks the page layout and hijacks navigation.
- */
 const POISONED_HTML_PATTERN = /<html|<!doctype|<script|<style|<meta|<body|cf_chl/i
 
 function isPoisonedHtml(html: string): boolean {
@@ -23,7 +43,7 @@ function isPoisonedHtml(html: string): boolean {
 }
 
 export function ReviewCard({ review }: { review: Review }) {
-  const stars = ratingStars(review.rating)
+  const hasStars = review.rating !== null && !Number.isNaN(review.rating)
   const header = (
     <>
       {review.authorUrl ? (
@@ -38,8 +58,8 @@ export function ReviewCard({ review }: { review: Review }) {
       ) : (
         <span className="font-semibold text-ink-fg">{review.author}</span>
       )}
-      {stars && <span className="text-ink-fg">{stars}</span>}
-      {!stars && review.rating !== null && (
+      {hasStars && <StarRating rating={review.rating} />}
+      {!hasStars && review.rating !== null && (
         <span className="text-ink-fg">{review.rating}/10</span>
       )}
     </>
@@ -69,9 +89,10 @@ export function ReviewCard({ review }: { review: Review }) {
               href={review.reviewUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex min-h-11 items-center text-ink-fg underline underline-offset-2 can-hover:no-underline"
+              className="inline-flex min-h-11 items-center gap-1.5 text-ink-fg underline underline-offset-2 can-hover:no-underline"
             >
-              View on Letterboxd →
+              <MdArrowOutward size={16} aria-hidden="true" className="-mt-px" />
+              View on Letterboxd
             </a>
           )}
           <LikeButton review={review} />
@@ -81,12 +102,6 @@ export function ReviewCard({ review }: { review: Review }) {
   )
 }
 
-/**
- * Quiet inline like/unlike control for the review footer row. Reviews
- * scraped before like support have no viewing id — they can't be liked, so
- * nothing renders. The click applies optimistically and reverts if the
- * server says no.
- */
 function LikeButton({ review }: { review: Review }) {
   const likeReview = useServerFn(likeReviewFn)
   // Tri-state: null = trust review.liked from the DB; true/false = local
@@ -129,13 +144,17 @@ function LikeButton({ review }: { review: Review }) {
         aria-pressed={liked}
         disabled={pending}
         onClick={onToggle}
-        className="inline-flex min-h-11 items-center gap-1 text-ink-fg underline underline-offset-2 can-hover:no-underline disabled:opacity-50"
+        className="inline-flex min-h-11 items-center gap-1.5 text-ink-fg underline underline-offset-2 can-hover:no-underline disabled:opacity-50"
       >
         {pending ? (
           '…'
         ) : (
           <>
-            <HeartIcon filled={liked} />
+            {liked ? (
+              <MdFavorite size={16} aria-hidden="true" className="-mt-px" />
+            ) : (
+              <MdFavoriteBorder size={16} aria-hidden="true" className="-mt-px" />
+            )}
             {liked ? 'Liked' : 'Like'}
           </>
         )}
@@ -149,26 +168,3 @@ function LikeButton({ review }: { review: Review }) {
   )
 }
 
-/**
- * Lucide "heart" icon — https://lucide.dev/icons/heart
- * License: ISC (https://lucide.dev/license), © Lucide Contributors.
- * Inline copy so no icon package is needed; outline for neutral, solid
- * fill for the active (liked) state.
- */
-function HeartIcon({ filled }: { filled: boolean }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      width="15"
-      height="15"
-      fill={filled ? 'currentColor' : 'none'}
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M2 9.5a5.5 5.5 0 0 1 9.591-3.676.56.56 0 0 0 .818 0A5.49 5.49 0 0 1 22 9.5c0 2.29-1.5 4-3 5.5l-5.492 5.313a2 2 0 0 1-3 .019L5 15c-1.5-1.5-3-3.2-3-5.5" />
-    </svg>
-  )
-}

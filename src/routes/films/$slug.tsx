@@ -1,4 +1,5 @@
 import { useRef } from 'react'
+import { MdArrowBack, MdCheck } from 'react-icons/md'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { getFilmFn } from '../../server/films'
 import { getReviewsFn } from '../../server/reviews'
@@ -41,9 +42,10 @@ function NotFoundState({ message }: { message: string }) {
     <main>
       <Link
         to="/"
-        className="inline-flex min-h-11 items-center text-sm text-ink-fg underline underline-offset-2 can-hover:no-underline"
+        className="inline-flex min-h-11 items-center gap-1.5 text-sm text-ink-fg underline underline-offset-2 can-hover:no-underline"
       >
-        ← Back
+        <MdArrowBack size={16} aria-hidden="true" className="-mt-px" />
+        Back
       </Link>
       <h1 className="mt-4 text-2xl font-bold">Film not found</h1>
       <p className="mt-2 text-ink-meta">{message}</p>
@@ -90,9 +92,10 @@ function FilmPage() {
     <main>
       <Link
         to="/"
-        className="inline-flex min-h-11 items-center text-sm text-ink-fg underline underline-offset-2 can-hover:no-underline"
+        className="inline-flex min-h-11 items-center gap-1.5 text-sm text-ink-fg underline underline-offset-2 can-hover:no-underline"
       >
-        ← Back
+        <MdArrowBack size={16} aria-hidden="true" className="-mt-px" />
+        Back
       </Link>
       <h1 className="mt-4 text-3xl font-bold tracking-tight">{film.title}</h1>
       <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-ink-meta">
@@ -101,7 +104,10 @@ function FilmPage() {
           {film.reviewCount} review{film.reviewCount === 1 ? '' : 's'}
         </span>
         {effectivelyRead && !scraping ? (
-          <span>✓ Read</span>
+          <span className="inline-flex items-center gap-1.5">
+            <MdCheck size={16} aria-hidden="true" className="-mt-px" />
+            Read
+          </span>
         ) : seenCount > 0 && !scraping ? (
           <span>
             {seenCount} of {film.reviewCount} read
