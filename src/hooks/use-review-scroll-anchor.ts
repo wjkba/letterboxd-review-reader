@@ -128,12 +128,23 @@ export function useReviewScrollAnchor({
   // restore position isn't overwritten by the listener firing mid-scroll.
   const restoringRef = useRef(false)
 
-  // Restore — runs whenever the reviews data identity changes (initial load
-  // and polling refreshes).
+  // Restore at most once per mount/slug. Reviews identity changes on every
+  // polling refresh (e.g. every 2s while scraping) — re-restoring then would
+  // repeatedly yank the user back to the saved anchor while reading.
+  const restoredForRef = useRef<string | null>(null)
+
+  // Restore — runs on the first reviews load for this slug (initial load,
+  // or when reviews arrive during an in-progress scrape). "Restored" is
+  // marked only once the attempt completes, so StrictMode's
+  // mount→cleanup→mount effect cycle restarts (not skips) the restore.
   useEffect(() => {
     if (reviews.length === 0) return
+    if (restoredForRef.current === slug) return
     const saved = getScrollAnchor(slug)
-    if (!saved) return
+    if (!saved) {
+      restoredForRef.current = slug
+      return
+    }
 
     const ids = reviews.map((r) => r.id)
     let targetId = saved.reviewId
@@ -157,22 +168,30 @@ export function useReviewScrollAnchor({
     let cancelled = false
     let frames = 0
 
+    const finish = () => {
+      restoredForRef.current = slug
+      restoringRef.current = false
+    }
+
     const tick = () => {
       if (cancelled) return
       const el = findReviewElement(containerRef.current, targetId)
       if (el) {
+        // rect.top + scrollY is the element's top in document space; the
+        // saved offset is how far the viewport sat past that top, so add it
+        // to land the element back at its saved viewport position.
         window.scrollTo({
-          top: el.getBoundingClientRect().top + window.scrollY - saved.offset,
+          top: el.getBoundingClientRect().top + window.scrollY + saved.offset,
         })
         if (targetId === ids[0] && saved.offset <= 0) {
           // Restore landed at the top — nothing meaningful to keep.
           clearScrollAnchor(slug)
         }
-        restoringRef.current = false
+        finish()
         return
       }
       if (frames++ >= RESTORE_FRAME_CAP) {
-        restoringRef.current = false
+        finish()
         return
       }
       requestAnimationFrame(tick)
@@ -185,27 +204,44 @@ export function useReviewScrollAnchor({
     }
   }, [slug, reviews, containerRef])
 
-  // Save — debounced scroll listener. The DOM is queried at scroll time, so
-  // polling-refreshed review elements are picked up automatically.
+  // Save — debounced scroll listener, attached once per slug. Deliberately
+  // does not depend on `reviews`: re-attaching on every polling refresh
+  // would clear a pending debounce and drop in-flight saves mid-scroll.
+  // Presence of review elements in the DOM is checked at fire time instead,
+  // so nothing is saved before the reviews render.
   useEffect(() => {
-    if (reviews.length === 0) return
-    let timer: number | undefined
+    const save = () => {
+      const container = containerRef.current
+      if (!container) return
+      // No review elements rendered yet (or none left) — keep any stored
+      // anchor rather than clobbering it with a no-op.
+      if (container.querySelector('[data-review-id]') === null) return
+      setScrollAnchor(slug, computeAnchor(container))
+    }
 
+    let timer: number | undefined
     const onScroll = () => {
       if (restoringRef.current) return
       window.clearTimeout(timer)
       timer = window.setTimeout(() => {
         if (restoringRef.current) return
-        const container = containerRef.current
-        if (!container) return
-        setScrollAnchor(slug, computeAnchor(container))
+        save()
       }, SAVE_DEBOUNCE_MS)
     }
 
+    // Navigating away inside the debounce window would lose the last
+    // position — flush it when the page is unloaded or hidden.
+    const flush = () => {
+      window.clearTimeout(timer)
+      if (!restoringRef.current) save()
+    }
+
     window.addEventListener('scroll', onScroll, { passive: true })
+    window.addEventListener('pagehide', flush)
     return () => {
       window.removeEventListener('scroll', onScroll)
+      window.removeEventListener('pagehide', flush)
       window.clearTimeout(timer)
     }
-  }, [slug, reviews, containerRef])
+  }, [slug, containerRef])
 }
