@@ -30,6 +30,10 @@ export const reviews = sqliteTable(
     rating: integer('rating'),
     watchedDate: text('watched_date'),
     reviewUrl: text('review_url').notNull(),
+    /** Letterboxd internal viewing id (from `/s/full-text/viewing:{id}/`), used as the like target. */
+    viewingId: text('viewing_id'),
+    /** Whether the configured Letterboxd account has liked this review. */
+    liked: integer('liked', { mode: 'boolean' }).notNull().default(false),
     html: text('html').notNull(),
     scrapedAt: integer('scraped_at')
       .notNull()

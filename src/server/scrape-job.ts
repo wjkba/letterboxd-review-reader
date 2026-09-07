@@ -90,11 +90,18 @@ export async function runScrapeJob(
             rating: review.rating,
             watchedDate: review.watchedDate,
             reviewUrl: review.reviewUrl,
+            viewingId: review.viewingId,
             html: review.html,
             scrapedAt: Date.now(),
           })
-          .onConflictDoNothing({
+          // Re-scraped reviews conflict on (filmId, reviewUrl); refresh the
+          // viewing id (the like target) when it changed. `setWhere` keeps
+          // the do-nothing count semantics: the row is only "returned" when
+          // the viewing id actually differs.
+          .onConflictDoUpdate({
             target: [reviews.filmId, reviews.reviewUrl],
+            set: { viewingId: review.viewingId },
+            setWhere: sql`${reviews.viewingId} is not ${review.viewingId}`,
           })
           .returning()
         insertedCount += inserted.length

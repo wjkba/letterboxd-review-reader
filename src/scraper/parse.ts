@@ -83,6 +83,10 @@ export function parsePage(
       ? bodyText.attr('data-full-text-url')
       : null
 
+    // The internal viewing id (`/s/full-text/viewing:{id}/`) is the target
+    // used for liking the review via Letterboxd's like endpoint.
+    const viewingId = fullTextUrl?.match(/\/viewing:(\d+)\//)?.[1] ?? null
+
     // The attribution link ("Watched by / Rewatched by") href is the exact
     // public review permalink, including the viewing ordinal for rewatches.
     const publicHref = el.find('a.context').first().attr('href') ?? null
@@ -95,6 +99,7 @@ export function parsePage(
       authorUrl,
       reviewUrl: `${BASE_URL}${fullTextUrl}`,
       publicUrl: publicHref ? `${BASE_URL}${publicHref}` : null,
+      viewingId,
       rating: parseRating($, el),
       watchedDate: parseWatchedDate($, el),
       stream,

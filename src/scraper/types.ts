@@ -24,6 +24,8 @@ export interface ScrapedReview {
   authorUrl: string | null
   html: string
   reviewUrl: string
+  /** Letterboxd internal viewing id, used as the like target. Null when the review page URL does not match the expected pattern. */
+  viewingId: string | null
   rating: number | null
   watchedDate: string | null
   /** Which reviews list this review came from (tagged at parse time). */
@@ -39,6 +41,8 @@ export interface PendingReview {
   watchedDate: string | null
   /** Public permalink for this exact review (with viewing ordinal for rewatches), from the list item's attribution link. Null when the item has no such link. */
   publicUrl: string | null
+  /** Letterboxd internal viewing id (from `/s/full-text/viewing:{id}/`), used as the like target. */
+  viewingId: string | null
   stream: 'popular' | 'newest'
 }
 

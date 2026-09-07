@@ -132,6 +132,7 @@ export async function scrapeFilmReviews(
       authorUrl: entry.authorUrl,
       html: reviewHTML,
       reviewUrl: publicReviewUrl(entry, slug),
+      viewingId: entry.viewingId,
       rating: entry.rating,
       watchedDate: entry.watchedDate,
       stream: entry.stream,
