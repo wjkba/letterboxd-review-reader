@@ -1,27 +1,52 @@
 # Letterboxd Review Reader
 
-A web app that fetches and reads Letterboxd film reviews, enriched with film metadata from TMDB.
+A self-hosted, e-ink style reader for long-form Letterboxd film reviews. Add a film, and the app scrapes its popular or newest reviews in the background and presents them on a clean, paper-like reading surface — designed to run on e-reader devices like Onyx Boox.
 
-Built with [TanStack Start](https://tanstack.com/start) (SSR via Nitro's `node-server` preset), Vite, Tailwind CSS, and SQLite (Drizzle ORM + better-sqlite3).
+## ✨ Features
 
-## Requirements
+- Scrapes popular or newest Letterboxd reviews in the background, with live progress
+- E-ink style reading interface — grayscale, serif, paper-like
+- Read progress tracking per film, picks up where you left off
+- Like reviews on Letterboxd directly from the app (optional)
+- Review settings: sort order and target number of reviews per film
+- Film management: rescrape, mark read/unread, delete
+- Language-filtered reviews
 
-- Node.js >= 20 (better-sqlite3 v13 is NAPI-based and runs on 20+, though it advertises `>= 22`)
-- pnpm 11 (pinned via the `packageManager` field in `package.json`; corepack users can just run `corepack enable`)
-- Docker (optional, for containerized deployment)
-- A [TMDB read access token](https://www.themoviedb.org/settings/api) (optional — only needed for TMDB search)
+## 🛠️ Tech Stack
 
-## Environment variables
+- [TanStack Start](https://tanstack.com/start) (SSR via Nitro's `node-server` preset) + Vite
+- [TanStack Router](https://tanstack.com/router) — file-based routing in `src/routes`
+- Tailwind CSS
+- [Drizzle ORM](https://orm.drizzle.team) + better-sqlite3 (SQLite)
+- Cheerio + got-scraping for Letterboxd review parsing
+- pnpm 11
 
-| Variable                 | Required | Default                 | Purpose                                  |
-| ------------------------ | -------- | ----------------------- | ---------------------------------------- |
-| `DATABASE_PATH`          | no       | `./data/letterboxd.db`  | SQLite database file location            |
-| `TMDB_READ_ACCESS_TOKEN` | no       | —                       | TMDB API token, enables TMDB film search |
+## 🚀 Getting Started
 
-## Local development
+Requires Node.js >= 20 and pnpm 11. To skip local setup entirely, use Docker (see below).
+
+### Install
 
 ```bash
 pnpm install
+```
+
+### Configure
+
+Environment variables are optional and read at runtime:
+
+| Variable                 | Required | Default                | Purpose                                                                   |
+| ------------------------ | -------- | ---------------------- | ------------------------------------------------------------------------- |
+| `DATABASE_PATH`          | no       | `./data/letterboxd.db` | SQLite database file location                                             |
+| `TMDB_READ_ACCESS_TOKEN` | no       | —                      | TMDB API token, enables film title search                                 |
+| `LETTERBOXD_COOKIE`      | no       | —                      | Your Letterboxd session cookie, enables liking reviews from the app       |
+| `LETTERBOXD_USER_AGENT`  | no       | —                      | Must match the browser UA the cookie was captured from (Cloudflare binds clearance to UA) |
+
+The cookie is server-side only and is never sent to the client.
+
+### Run
+
+```bash
 pnpm run db:migrate   # create/update the SQLite database (drizzle-kit)
 pnpm run dev          # dev server on http://localhost:3000
 ```
@@ -33,34 +58,28 @@ pnpm run db:generate  # generate a migration
 pnpm run db:migrate   # apply it
 ```
 
-## Production build
+## 🏗️ Production build
 
-The build produces a self-contained Nitro Node server in `.output/`:
+The build produces a self-contained Nitro Node server in `.output/` — ship that directory and run it, no separate `node_modules` needed:
 
 ```bash
 pnpm run build
 node .output/server/index.mjs   # serves on $PORT (default 3000)
 ```
 
-The server respects `PORT` (or `NITRO_PORT`) and `HOST` (or `NITRO_HOST`). Native dependencies (better-sqlite3, got-scraping) are traced into `.output/server/node_modules`, so no separate `node_modules` install is needed at runtime — just ship the `.output` directory (plus `drizzle/` for auto-migration).
+`PORT`/`HOST` are respected, and pending database migrations are applied automatically on server start.
 
-Pending database migrations are applied automatically when the server starts (`src/db/index.ts` runs `migrate()` on boot), so there is no separate migration step for production deploys.
-
-## Docker deployment
-
-From the repository root (the `docker-compose.yml` lives at the repo root, next to `web/`):
+## 🐳 Docker deployment
 
 ```bash
 docker compose up -d --build
 ```
 
 - App: http://localhost:3000
-- The SQLite database is stored in the named volume `letterboxd-data`, mounted at `/data` (`DATABASE_PATH=/data/letterboxd.db`), so it persists across restarts and rebuilds.
-- To set the TMDB token, create a `.env` file next to `docker-compose.yml` with `TMDB_READ_ACCESS_TOKEN=...` and uncomment the line in `docker-compose.yml`.
+- The SQLite database persists in the named volume `letterboxd-data`, mounted at `/data`.
+- To set the TMDB token or Letterboxd cookie, create a `.env` file next to `docker-compose.yml` and uncomment the corresponding lines.
 
-The multi-stage `web/Dockerfile` builds with `node:20-slim` and the runtime image copies only the `.output` directory (plus the traced native modules).
-
-## Tailscale HTTPS exposure
+## 🔒 Tailscale HTTPS exposure
 
 The simplest way to share the app over HTTPS within your tailnet, without exposing anything publicly:
 
@@ -82,6 +101,10 @@ tailscale serve reset    # remove the serve config
 > `--bg` persists the config across reboots; without it, serve stops when the terminal session ends.
 
 To bind the app to localhost only (no host port exposed at all), change the compose port mapping to `"127.0.0.1:3000:3000"`. Alternatively, run a Tailscale container as a sidecar — a commented-out example is included in `docker-compose.yml`.
+
+## Contributing
+
+Issues and pull requests are welcome!
 
 ## Learn more
 
