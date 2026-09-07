@@ -98,9 +98,39 @@ export async function scrapeFilmReviews(
   // of both lists; also guards against repeats across pages of one list.
   const seen = new Set<string>()
   let pagesScraped = 0
+  /**
+   * Consecutive fetches (list or full text) answered by a Cloudflare
+   * challenge after the in-fetch retries. Reset to 0 after ANY successful
+   * fetch anywhere; reaching 3 means a block, not noise.
+   */
+  let consecutiveChallenges = 0
+  /** Set when a challenge stopped the scrape; reported via ScrapeResult. */
+  let stoppedEarly: 'cloudflare-challenge' | undefined
 
   function pageUrlFor(base: string, page: number): string {
     return page > 1 ? base.replace(/\/$/, `/page/${page}/`) : base
+  }
+
+  /**
+   * Fetch a reviews list page. On a Cloudflare challenge (after the
+   * in-fetch retries) stop the scrape gracefully instead of propagating —
+   * reviews scraped so far are already persisted, and the block may be
+   * transient. Returns null when scraping must stop.
+   */
+  async function fetchListPage(url: string): Promise<string | null> {
+    try {
+      const html = await getHTML(url)
+      consecutiveChallenges = 0
+      return html
+    } catch (err) {
+      if (!(err instanceof CloudflareChallengeError)) throw err
+      consecutiveChallenges++
+      stoppedEarly = 'cloudflare-challenge'
+      console.warn(
+        `Cloudflare challenge fetching list page — stopping scrape gracefully: ${url}`
+      )
+      return null
+    }
   }
 
   /**
@@ -120,15 +150,20 @@ export async function scrapeFilmReviews(
     let reviewHTML: string
     try {
       reviewHTML = await getHTML(entry.reviewUrl)
+      // Any successful fetch anywhere resets the challenge streak.
+      consecutiveChallenges = 0
     } catch (err) {
-      // If Cloudflare is challenging us, every subsequent fetch will fail
-      // too — abort the whole scrape with a clear message instead of
-      // storing challenge pages as review content.
-      throw err instanceof CloudflareChallengeError
-        ? new Error(
-            `Cloudflare challenge while fetching review — aborting scrape (${entry.reviewUrl})`
-          )
-        : err
+      if (!(err instanceof CloudflareChallengeError)) throw err
+      // Challenge after the in-fetch retries: skip this review, but keep
+      // counting — several challenges in a row means a block, not noise,
+      // so stop all further scraping and return the partial progress.
+      consecutiveChallenges++
+      console.warn(
+        `Cloudflare challenge fetching review (${consecutiveChallenges} consecutive) — skipping: ${entry.reviewUrl}`
+      )
+      if (consecutiveChallenges >= 3) stoppedEarly = 'cloudflare-challenge'
+      await delay(500)
+      return
     }
 
     // Language filter: drop reviews not in the allowed languages before
@@ -182,6 +217,8 @@ export async function scrapeFilmReviews(
   /** Process pending entries in order (single-stream page). */
   async function processEntries(entries: PendingReview[]): Promise<void> {
     for (const entry of entries) {
+      // A challenge streak may have stopped the scrape mid-page.
+      if (stoppedEarly) break
       await processEntry(entry)
     }
   }
@@ -205,6 +242,7 @@ export async function scrapeFilmReviews(
     while (
       pagesScraped < maxPages &&
       scrapedReviews.length < targetReviews &&
+      !stoppedEarly &&
       !(done.popular && done.newest)
     ) {
       // Fetch one page per stream, popular first.
@@ -215,7 +253,9 @@ export async function scrapeFilmReviews(
         if (scrapedReviews.length >= targetReviews) break
 
         const base = stream === 'popular' ? popularUrl : newestUrl
-        const html = await getHTML(pageUrlFor(base, next[stream]))
+        const html = await fetchListPage(pageUrlFor(base, next[stream]))
+        // Challenge: stop scraping entirely and return partial progress.
+        if (html === null) break
         pagesScraped++
         next[stream]++
 
@@ -229,10 +269,12 @@ export async function scrapeFilmReviews(
       // when entries remain in the batches).
       while (
         scrapedReviews.length < targetReviews &&
+        !stoppedEarly &&
         batches.some((batch) => batch.length > 0)
       ) {
         for (const batch of batches) {
           if (scrapedReviews.length >= targetReviews) break
+          if (stoppedEarly) break
           const entry = batch.shift()
           if (entry) await processEntry(entry)
         }
@@ -245,10 +287,13 @@ export async function scrapeFilmReviews(
       sortMode === 'newest' ? 'newest' : 'popular'
 
     for (let page = startPage; page <= maxPages; page++) {
-      // Stop before fetching anything else once the target is reached.
-      if (scrapedReviews.length >= targetReviews) break
+      // Stop before fetching anything else once the target is reached
+      // or a challenge stopped the scrape.
+      if (scrapedReviews.length >= targetReviews || stoppedEarly) break
 
-      const html = await getHTML(pageUrlFor(base, page))
+      const html = await fetchListPage(pageUrlFor(base, page))
+      // Challenge: stop scraping entirely and return partial progress.
+      if (html === null) break
       pagesScraped++
 
       await processEntries(parsePage(html, stream).entries)
@@ -260,5 +305,6 @@ export async function scrapeFilmReviews(
     reviews: scrapedReviews,
     pagesScraped,
     sortMode,
+    ...(stoppedEarly ? { stoppedEarly } : {}),
   }
 }

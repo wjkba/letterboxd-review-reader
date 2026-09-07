@@ -51,4 +51,10 @@ export interface ScrapeResult {
   reviews: ScrapedReview[]
   pagesScraped: number
   sortMode?: SortMode
+  /**
+   * Set when scraping stopped before finishing because of Cloudflare
+   * challenges (after the per-request retries in http.ts). The reviews
+   * scraped so far are still valid — re-fetch the film later to finish.
+   */
+  stoppedEarly?: 'cloudflare-challenge'
 }

@@ -49,25 +49,43 @@ function isChallengeResponse(
   return CHALLENGE_STATUS_CODES.has(statusCode) && /Just a moment/.test(body)
 }
 
-function assertNotChallenge(
-  statusCode: number,
-  body: string,
-  headers: Record<string, unknown>,
-  url: string
-): void {
-  if (isChallengeResponse(statusCode, body, headers)) {
-    throw new CloudflareChallengeError(url)
+/** Backoff waits between challenge-response retries: 5s, then 15s. */
+const CHALLENGE_RETRY_DELAYS_MS = [5_000, 15_000] as const
+
+/**
+ * Run `fetch` and, on a Cloudflare challenge response, retry with the
+ * increasing backoff above before giving up — challenges are often
+ * transient, so a hard abort on the first hit aborts scrapes
+ * unnecessarily. Total worst-case added latency per url is bounded
+ * (~20s). Only once the retries are exhausted is `CloudflareChallengeError`
+ * thrown.
+ */
+async function fetchWithChallengeRetry<
+  T extends { statusCode: number; body: string; headers: Record<string, unknown> },
+>(url: string, fetch: () => Promise<T>): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    const response = await fetch()
+    if (
+      !isChallengeResponse(response.statusCode, response.body, response.headers)
+    ) {
+      return response
+    }
+    if (attempt >= CHALLENGE_RETRY_DELAYS_MS.length) {
+      throw new CloudflareChallengeError(url)
+    }
+    await delay(CHALLENGE_RETRY_DELAYS_MS[attempt])
   }
 }
 
 export async function getHTML(url: string): Promise<string> {
-  const response = await gotScraping({
-    url,
-    headerGeneratorOptions,
-    timeout: { request: 30_000 },
-    retry: { limit: 3, methods: ['GET'] },
-  })
-  assertNotChallenge(response.statusCode, response.body, response.headers, url)
+  const response = await fetchWithChallengeRetry(url, () =>
+    gotScraping({
+      url,
+      headerGeneratorOptions,
+      timeout: { request: 30_000 },
+      retry: { limit: 3, methods: ['GET'] },
+    })
+  )
   return response.body
 }
 
@@ -79,13 +97,14 @@ export async function getHTML(url: string): Promise<string> {
 export async function getHTMLWithRedirect(
   url: string
 ): Promise<{ body: string; finalUrl: string }> {
-  const response = await gotScraping({
-    url,
-    headerGeneratorOptions,
-    timeout: { request: 30_000 },
-    retry: { limit: 3, methods: ['GET'] },
-    followRedirect: true,
-  })
-  assertNotChallenge(response.statusCode, response.body, response.headers, url)
+  const response = await fetchWithChallengeRetry(url, () =>
+    gotScraping({
+      url,
+      headerGeneratorOptions,
+      timeout: { request: 30_000 },
+      retry: { limit: 3, methods: ['GET'] },
+      followRedirect: true,
+    })
+  )
   return { body: response.body, finalUrl: response.url }
 }

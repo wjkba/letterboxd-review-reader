@@ -160,13 +160,23 @@ export async function runScrapeJob(
     // reviews were found, leave the user's progress untouched.
     const resetProgress = total > film.reviewCount
 
+    // A Cloudflare challenge (after the in-fetch retries) may stop the
+    // scrape early; that is transient, not a failure — keep the job
+    // 'completed' with the reviews scraped so far and record a warning so
+    // the user knows to re-fetch later. A normal full scrape clears any
+    // previous error by writing null.
+    const partialScrape =
+      result.stoppedEarly === 'cloudflare-challenge'
+        ? `Partial scrape: stopped early on a Cloudflare challenge after ${total} reviews; re-fetch later to finish`
+        : null
+
     await db
       .update(films)
       .set({
         reviewCount: total,
         lastScrapedAt: Date.now(),
         scrapeStatus: 'completed',
-        scrapeError: null,
+        scrapeError: partialScrape,
         ...(resetProgress
           ? { readStatus: 'unread' as const, reviewsRead: 0 }
           : {}),
@@ -180,11 +190,12 @@ export async function runScrapeJob(
         finishedAt: Date.now(),
         pagesScraped: result.pagesScraped,
         reviewsAdded,
-        error: null,
+        error: partialScrape,
       })
       .where(eq(scrapeJobs.id, job.id))
 
     console.log(`${resolvedTag} Scrape complete: ${reviewsAdded} reviews added`)
+    if (partialScrape) console.warn(`${resolvedTag} ${partialScrape}`)
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
 
